@@ -4,15 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+
     <!-- SEO Core -->
-    <title>Diseño Web Premium & E-commerce | AugustoCS — Castellón</title>
-    <meta name="description" content="Estudio de diseño web y e-commerce en Castellón. Proyectos en Framer y Shopify que convierten visitas en clientes. Experiencias digitales premium a medida.">
-    <meta name="keywords" content="diseño web Castellón, e-commerce, Shopify, Framer, UX UI, agencia digital, portfolio, frontend, diseño web premium">
-    <meta name="author" content="AugustoCS">
-    <meta name="robots" content="index, follow">
+    <title>Diseño Web y E-commerce para Marcas Premium | AugustoCS — Castellón</title>
+    <meta name="description" content="Estudio de diseño web y tiendas online en Castellón. Creamos páginas web en Shopify y Framer que convierten visitas en clientes. Portfolio de proyectos reales para marcas que no se conforman con lo genérico.">
+    <meta name="author" content="AugustoCS — César López">
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
     <link rel="canonical" href="https://augustocs.com/">
 
-    <!-- Google Fonts — non-blocking -->
+    <!-- Performance: preconnect for fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
@@ -20,18 +23,23 @@
     <!-- Open Graph -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://augustocs.com/">
-    <meta property="og:title" content="Diseño Web Premium & E-commerce | AugustoCS">
-    <meta property="og:description" content="Estudio de diseño web y e-commerce en Castellón. Experiencias digitales en Framer y Shopify que convierten.">
-    <meta property="og:image" content="https://augustocs.com/RobotEnergy.png">
+    <meta property="og:title" content="Diseño Web y E-commerce para Marcas Premium | AugustoCS">
+    <meta property="og:description" content="Creamos páginas web y tiendas online para marcas que no se conforman con lo genérico. Diseño editorial y código de alto rendimiento desde Castellón.">
+    <meta property="og:image" content="https://augustocs.com/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="AugustoCS — Estudio de Diseño Web y E-commerce">
     <meta property="og:locale" content="es_ES">
     <meta property="og:site_name" content="AugustoCS">
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:site" content="@augustocs">
-    <meta name="twitter:title" content="Diseño Web Premium & E-commerce | AugustoCS">
-    <meta name="twitter:description" content="Estudio de diseño web y e-commerce en Castellón. Experiencias digitales que convierten.">
-    <meta name="twitter:image" content="https://augustocs.com/RobotEnergy.png">
+    <meta name="twitter:creator" content="@augustocs">
+    <meta name="twitter:title" content="Diseño Web y E-commerce para Marcas Premium | AugustoCS">
+    <meta name="twitter:description" content="Creamos páginas web y tiendas online para marcas que no se conforman con lo genérico. Diseño editorial desde Castellón.">
+    <meta name="twitter:image" content="https://augustocs.com/og-image.png">
+    <meta name="twitter:image:alt" content="AugustoCS — Estudio de Diseño Web y E-commerce">
 
     <!-- JSON-LD Structured Data -->
     <script type="application/ld+json">
@@ -39,76 +47,121 @@
       "@context": "https://schema.org",
       "@graph": [
         {
-          "@type": "ProfessionalService",
+          "@type": ["ProfessionalService", "LocalBusiness"],
           "@id": "https://augustocs.com/#organization",
           "name": "AugustoCS",
+          "alternateName": "Augusto Creative Studio",
           "url": "https://augustocs.com",
-          "logo": "https://augustocs.com/favicon.ico",
-          "description": "Estudio de diseño web y e-commerce de alto rendimiento para marcas premium. Especialistas en Framer y Shopify.",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://augustocs.com/og-image.png",
+            "width": 1200,
+            "height": 630
+          },
+          "image": "https://augustocs.com/og-image.png",
+          "description": "Estudio de diseño web y e-commerce en Castellón. Creamos páginas web y tiendas online para marcas premium. Especializados en Shopify, Framer y React.",
           "email": "cesarl@augustocs.com",
+          "priceRange": "€€€",
+          "currenciesAccepted": "EUR",
+          "paymentAccepted": "Transferencia bancaria, PayPal",
           "address": {
             "@type": "PostalAddress",
+            "streetAddress": "Castellón de la Plana",
             "addressLocality": "Castellón de la Plana",
             "addressRegion": "Comunidad Valenciana",
+            "postalCode": "12000",
             "addressCountry": "ES"
           },
-          "areaServed": {
-            "@type": "Country",
-            "name": "España"
+          "geo": {
+            "@type": "GeoCoordinates",
+            "latitude": 39.9864,
+            "longitude": -0.0513
           },
-          "serviceType": ["Diseño Web", "E-commerce", "UX/UI Design", "Desarrollo Frontend", "Shopify", "Framer"],
+          "areaServed": [
+            { "@type": "Country", "name": "España" },
+            { "@type": "AdministrativeArea", "name": "Comunidad Valenciana" },
+            { "@type": "City", "name": "Castellón de la Plana" }
+          ],
+          "serviceType": ["Diseño Web", "Tiendas Online", "E-commerce", "UX/UI Design", "Desarrollo Frontend", "Shopify", "Framer", "React"],
+          "knowsAbout": ["Diseño Web", "E-commerce", "Shopify", "Framer", "React", "UI/UX", "Branding Digital"],
+          "sameAs": [
+            "https://www.instagram.com/augustocs",
+            "https://www.linkedin.com/company/augustocs",
+            "https://www.behance.net/augustocs",
+            "https://dribbble.com/augustocs"
+          ],
           "hasOfferCatalog": {
             "@type": "OfferCatalog",
-            "name": "Servicios de Diseño Digital",
+            "name": "Servicios de Diseño Web y E-commerce",
             "itemListElement": [
               {
                 "@type": "Offer",
                 "itemOffered": {
                   "@type": "Service",
-                  "name": "Estrategia & UX/UI",
-                  "description": "Diseño de interfaces intuitivas y arquitecturas de información claras para experiencias digitales fluidas."
+                  "name": "Diseño Web Premium",
+                  "description": "Páginas web a medida con diseño editorial, animaciones de alto rendimiento y código optimizado para conversión."
                 }
               },
               {
                 "@type": "Offer",
                 "itemOffered": {
                   "@type": "Service",
-                  "name": "Ingeniería Técnica",
-                  "description": "Desarrollo frontend avanzado con animaciones de alto rendimiento en Framer Motion y React."
+                  "name": "Tiendas Online y E-commerce",
+                  "description": "Desarrollo de tiendas online en Shopify orientadas a la conversión, con estética narrativa y experiencia de compra premium."
                 }
               },
               {
                 "@type": "Offer",
                 "itemOffered": {
                   "@type": "Service",
-                  "name": "E-commerce Premium",
-                  "description": "Soluciones a medida en Shopify orientadas a la conversión y la estética narrativa."
+                  "name": "Estrategia UX/UI",
+                  "description": "Arquitectura de información, wireframes y diseño de interfaces intuitivas para experiencias digitales fluidas."
                 }
               }
             ]
           }
         },
         {
+          "@type": "Person",
+          "@id": "https://augustocs.com/#person",
+          "name": "César López",
+          "jobTitle": "Diseñador Web y Director de Arte",
+          "worksFor": { "@id": "https://augustocs.com/#organization" },
+          "url": "https://augustocs.com",
+          "email": "cesarl@augustocs.com",
+          "knowsAbout": ["Diseño Web", "E-commerce", "Shopify", "Framer", "React", "UI/UX Design", "Dirección de Arte"],
+          "sameAs": [
+            "https://www.linkedin.com/in/augustocs"
+          ]
+        },
+        {
           "@type": "WebSite",
           "@id": "https://augustocs.com/#website",
           "url": "https://augustocs.com",
-          "name": "AugustoCS — Diseño Web Premium",
-          "description": "Portfolio y estudio de diseño web, e-commerce y UX/UI en Castellón.",
+          "name": "AugustoCS — Diseño Web y E-commerce Premium",
+          "description": "Portfolio y estudio de diseño web, e-commerce y UX/UI en Castellón. Páginas web y tiendas online para marcas premium.",
           "publisher": { "@id": "https://augustocs.com/#organization" },
-          "inLanguage": "es-ES"
+          "author": { "@id": "https://augustocs.com/#person" },
+          "inLanguage": "es-ES",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://augustocs.com/?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
         },
         {
           "@type": "ItemList",
           "@id": "https://augustocs.com/#portfolio",
-          "name": "Proyectos Destacados — AugustoCS",
+          "name": "Portfolio de Diseño Web — AugustoCS",
+          "description": "Proyectos de diseño web, e-commerce y tiendas online realizados por AugustoCS.",
           "itemListElement": [
             {
               "@type": "ListItem",
               "position": 1,
               "item": {
                 "@type": "CreativeWork",
-                "name": "Robot Energy & Peace",
-                "description": "Plataforma Shopify personalizada para una marca de bebidas premium, con un diseño inmersivo y enfocado en la conversión.",
+                "name": "Robot Energy & Peace — E-commerce Shopify",
+                "description": "Tienda online Shopify para una marca de bebidas premium. Diseño inmersivo orientado a conversión.",
                 "url": "https://www.robotenergy.com/",
                 "creator": { "@id": "https://augustocs.com/#organization" }
               }
@@ -118,8 +171,8 @@
               "position": 2,
               "item": {
                 "@type": "CreativeWork",
-                "name": "Madre Superiora",
-                "description": "Tienda online para una marca de café de especialidad. Foco en la estética editorial y narrativa de producto premium.",
+                "name": "Madre Superiora — Tienda Online Café de Especialidad",
+                "description": "E-commerce para una marca de café de especialidad. Estética editorial y narrativa de producto premium.",
                 "url": "https://madresuperioracoffee.com",
                 "creator": { "@id": "https://augustocs.com/#organization" }
               }
@@ -129,9 +182,9 @@
               "position": 3,
               "item": {
                 "@type": "CreativeWork",
-                "name": "AutoTietz",
-                "description": "Portal de compraventa de vehículos con experiencia de usuario fluida y sistemas de filtrado avanzados.",
-                "url": "https://autotietz.com",
+                "name": "AutoTietz — Portal Compraventa de Vehículos",
+                "description": "Página web para compraventa de vehículos con filtrado avanzado y experiencia de usuario fluida.",
+                "url": "https://www.autotietz.com/",
                 "creator": { "@id": "https://augustocs.com/#organization" }
               }
             },
@@ -140,9 +193,9 @@
               "position": 4,
               "item": {
                 "@type": "CreativeWork",
-                "name": "720Tech",
-                "description": "Branding corporativo y sitio web para una consultoría de Ingeniería Cloud e IoT.",
-                "url": "https://720tec.augustocs.com/",
+                "name": "B2Tech — Diseño Web Corporativo",
+                "description": "Branding corporativo y página web para consultoría de Ingeniería Cloud e IoT.",
+                "url": "https://b2tech.augustocs.com/",
                 "creator": { "@id": "https://augustocs.com/#organization" }
               }
             },
@@ -151,9 +204,31 @@
               "position": 5,
               "item": {
                 "@type": "CreativeWork",
-                "name": "Bocatería Cristi",
-                "description": "Plataforma digital para una cadena de restauración local, con navegación intuitiva e identidad visual cálida.",
-                "url": "https://bcristi.augustocs.com/",
+                "name": "Nova Restaurante — Web para Restaurante",
+                "description": "Página web para restaurante mediterráneo con reservas online e identidad visual premium.",
+                "url": "https://nova.augustocs.com/",
+                "creator": { "@id": "https://augustocs.com/#organization" }
+              }
+            },
+            {
+              "@type": "ListItem",
+              "position": 6,
+              "item": {
+                "@type": "CreativeWork",
+                "name": "Odentrics — Web para Clínica Dental",
+                "description": "Diseño web para clínica dental. Landing optimizada para captación de pacientes con identidad serena y profesional.",
+                "url": "https://odentrics.augustocs.com/",
+                "creator": { "@id": "https://augustocs.com/#organization" }
+              }
+            },
+            {
+              "@type": "ListItem",
+              "position": 7,
+              "item": {
+                "@type": "CreativeWork",
+                "name": "La Trattoria — Web para Restaurante Italiano",
+                "description": "Experiencia web inmersiva para restaurante italiano tradicional. Diseño elegante con reservas online.",
+                "url": "https://latrattoria.augustocs.com",
                 "creator": { "@id": "https://augustocs.com/#organization" }
               }
             }
@@ -162,10 +237,39 @@
       ]
     }
     </script>
-    <script type="module" crossorigin src="./assets/index-DP27bCip.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-B6xsAd2O.css">
+
+    <script type="module" crossorigin src="./assets/index-DEBq1NKa.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DIlBEjqp.css">
   </head>
   <body>
     <div id="root"></div>
+
+    <!-- Noscript fallback: visible only to crawlers that don't execute JS -->
+    <noscript>
+      <div style="font-family: sans-serif; max-width: 900px; margin: 0 auto; padding: 2rem; line-height: 1.6; color: #1a1a1a;">
+        <h1 style="font-size: 2rem; margin-bottom: 1rem;">AugustoCS — Diseño Web y E-commerce Premium en Castellón</h1>
+        <p>Creamos páginas web y tiendas online para marcas que no se conforman con lo genérico. Diseño editorial, código de alto rendimiento y resultados que convierten visitas en clientes reales.</p>
+        <h2 style="font-size: 1.25rem; margin: 1.5rem 0 0.5rem;">Servicios de Diseño Web</h2>
+        <ul style="list-style: disc; padding-left: 1.5rem;">
+          <li>Diseño y desarrollo de páginas web a medida</li>
+          <li>Tiendas online y e-commerce en Shopify</li>
+          <li>Diseño web en Framer con animaciones premium</li>
+          <li>Estrategia UX/UI y dirección de arte digital</li>
+        </ul>
+        <h2 style="font-size: 1.25rem; margin: 1.5rem 0 0.5rem;">Proyectos Destacados</h2>
+        <ul style="list-style: disc; padding-left: 1.5rem;">
+          <li>Robot Energy &amp; Peace — E-commerce Shopify para bebidas premium</li>
+          <li>Madre Superiora — Tienda online de café de especialidad</li>
+          <li>AutoTietz — Portal de compraventa de vehículos</li>
+          <li>B2Tech — Diseño web corporativo</li>
+          <li>Nova Restaurante — Web para restaurante mediterráneo</li>
+          <li>Odentrics — Web para clínica dental</li>
+          <li>La Trattoria — Web para restaurante italiano</li>
+        </ul>
+        <h2 style="font-size: 1.25rem; margin: 1.5rem 0 0.5rem;">Contacto</h2>
+        <p>Estudio de diseño web en Castellón de la Plana, Comunidad Valenciana, España.</p>
+        <p>Email: <a href="mailto:cesarl@augustocs.com" style="color: #1a1a1a;">cesarl@augustocs.com</a></p>
+      </div>
+    </noscript>
   </body>
 </html>
