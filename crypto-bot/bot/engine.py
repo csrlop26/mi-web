@@ -39,7 +39,9 @@ class Engine:
             return self.portfolio.equity() * cfg.risk.max_trade_pct
 
         self.momentum = MomentumLagStrategy(
-            cfg.momentum_lag, cfg.sim.annual_volatility, max_trade_usd)
+            cfg.momentum_lag, cfg.sim.annual_volatility, max_trade_usd,
+            window_seconds=cfg.window_minutes * 60,
+            fee_rate=cfg.fees.taker_bps / 10_000.0)
         self.market_maker = MarketMakerStrategy(
             cfg.market_maker, self.momentum.model_up_probability)
         self.last_quote: dict[tuple, PredictionQuote] = {}

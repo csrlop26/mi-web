@@ -44,6 +44,7 @@ class RiskCfg:
 @dataclass(frozen=True)
 class FeesCfg:
     taker_bps: float
+    maker_bps: float
     slippage_bps: float
 
 

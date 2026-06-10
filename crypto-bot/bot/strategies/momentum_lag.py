@@ -42,18 +42,27 @@ def _norm_cdf(x: float) -> float:
 class MomentumLagStrategy:
     name = "momentum_lag"
 
-    def __init__(self, cfg, fallback_volatility: float, max_trade_usd_fn):
+    def __init__(self, cfg, fallback_volatility: float, max_trade_usd_fn,
+                 window_seconds: float, fee_rate: float = 0.0):
         """max_trade_usd_fn() devuelve el tamaño máximo actual por operación
-        (equity vivo × max_trade_pct) → reinversión automática de ganancias."""
+        (equity vivo × max_trade_pct) → reinversión automática de ganancias.
+        fee_rate es la comisión taker por trade (1.8% en cripto de Polymarket):
+        el edge exigido para entrar se ajusta para que el trade la pague."""
         self.cfg = cfg
         self.fallback_vol = fallback_volatility
         self.max_trade_usd_fn = max_trade_usd_fn
+        self.window_seconds = window_seconds
+        self.fee_rate = fee_rate
         self.last_spot: dict[str, float] = {}
         self.last_tick_ts: dict[str, float] = {}
         self.spot_history: dict[str, deque] = {}    # (ts, price) recientes
         self.var_rate: dict[str, float] = {}        # EWMA de varianza por segundo
         self.vol_samples: dict[str, int] = {}
         self.holdings: dict[tuple, Side] = {}
+        # Apertura de cada ventana capturada por nosotros desde el spot.
+        # None = ventana descubierta a mitad → no operable (no sabemos la apertura).
+        self.window_open: dict[tuple, float | None] = {}
+        self.last_diag_ts: dict[str, float] = {}
 
     # ------------------------------------------------------------------ datos
 
@@ -92,12 +101,33 @@ class MomentumLagStrategy:
             return 0.0
         return math.log(hist[-1][1] / hist[0][1])
 
+    def _effective_open(self, q: PredictionQuote) -> float | None:
+        """Precio de apertura de la ventana.
+
+        Polymarket NO publica la apertura vía API, así que la capturamos
+        nosotros: el primer spot que vemos cuando la ventana está recién
+        abierta. Si descubrimos la ventana ya empezada, se marca como no
+        operable y se espera a la siguiente (cada 15 min hay otra).
+        """
+        if q.open_price > 0:
+            return q.open_price
+        key = (q.symbol, q.window_id)
+        if key not in self.window_open:
+            spot = self.last_spot.get(q.symbol)
+            fresh = q.seconds_remaining >= 0.8 * self.window_seconds
+            self.window_open[key] = spot if (fresh and spot) else None
+            if self.window_open[key] is None:
+                log.info("%s %s: ventana descubierta a mitad; se opera la siguiente",
+                         q.symbol, q.window_id[-8:])
+        return self.window_open[key]
+
     def model_up_probability(self, q: PredictionQuote) -> float | None:
         """Probabilidad real estimada de que la ventana cierre en verde."""
         spot = self.last_spot.get(q.symbol)
-        if spot is None or q.open_price <= 0:
+        open_price = self._effective_open(q)
+        if spot is None or open_price is None or open_price <= 0:
             return None
-        lead = math.log(spot / q.open_price)  # ventaja acumulada
+        lead = math.log(spot / open_price)  # ventaja acumulada
 
         # Señal cruzada: movimiento reciente de BTC que el alt aún no recoge.
         lead_sym = self.cfg.lead_symbol
@@ -141,15 +171,31 @@ class MomentumLagStrategy:
         if q.seconds_remaining < self.cfg.min_seconds_remaining:
             return []  # demasiado cerca de la resolución: el hueco ya no paga
 
-        # ¿Hay hueco suficiente en algún lado?
+        # ¿Hay hueco suficiente en algún lado? El umbral incluye las comisiones
+        # de entrada y salida: un edge que no paga las fees no es un edge.
+        required = self.cfg.min_edge + 2.0 * self.fee_rate
         edge_up = p_model - q.up_ask
         edge_down = (1.0 - p_model) - (1.0 - q.up_bid)
 
-        if edge_up >= self.cfg.min_edge and q.up_ask <= self.cfg.max_entry_price:
+        self._diagnostics(q, p_model, edge_up, edge_down, required)
+
+        if edge_up >= required and q.up_ask <= self.cfg.max_entry_price:
             signals.append(self._entry(q, Side.UP, q.up_ask, edge_up, p_model))
-        elif edge_down >= self.cfg.min_edge and (1.0 - q.up_bid) <= self.cfg.max_entry_price:
+        elif edge_down >= required and (1.0 - q.up_bid) <= self.cfg.max_entry_price:
             signals.append(self._entry(q, Side.DOWN, 1.0 - q.up_bid, edge_down, p_model))
         return signals
+
+    def _diagnostics(self, q: PredictionQuote, p_model: float,
+                     edge_up: float, edge_down: float, required: float) -> None:
+        """Latido cada 60 s por símbolo: visibiliza por qué (no) se opera."""
+        last = self.last_diag_ts.get(q.symbol, 0.0)
+        if q.ts - last < 60.0:
+            return
+        self.last_diag_ts[q.symbol] = q.ts
+        log.info("%s %s | modelo=%.3f mercado=%.3f | edge UP=%+.3f DOWN=%+.3f "
+                 "(umbral %.3f) | quedan %.0fs",
+                 q.symbol, q.window_id[-8:], p_model, q.up_mid,
+                 edge_up, edge_down, required, q.seconds_remaining)
 
     def _entry(self, q: PredictionQuote, side: Side, price: float,
                edge: float, p_model: float) -> Signal:
@@ -174,3 +220,4 @@ class MomentumLagStrategy:
 
     def on_resolution(self, key: tuple) -> None:
         self.holdings.pop(key, None)
+        self.window_open.pop(key, None)

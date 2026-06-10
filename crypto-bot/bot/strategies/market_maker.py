@@ -67,7 +67,9 @@ class MarketMakerStrategy:
 
         fair = self.fair_price(q)
         if fair is None:
-            fair = q.up_mid
+            # Sin modelo no se cotiza: centrarse en el propio mercado garantiza
+            # no cruzar nunca (y de hacerlo, sería contra flujo informado).
+            return []
 
         key = (q.symbol, q.window_id)
         spread = self._dynamic_spread(key, fair, q.ts)
@@ -97,7 +99,7 @@ class MarketMakerStrategy:
             signals.append(Signal(
                 strategy=self.name, symbol=q.symbol, window_id=q.window_id,
                 side=Side.UP, action=Action.BUY, price=my_bid,
-                size_usd=self.cfg.quote_size_usd,
+                size_usd=self.cfg.quote_size_usd, passive=True,
                 reason=f"mm: UP barato {q.up_ask:.2f} <= bid {my_bid:.2f} (spread {spread:.3f})",
             ))
 
@@ -106,7 +108,7 @@ class MarketMakerStrategy:
             signals.append(Signal(
                 strategy=self.name, symbol=q.symbol, window_id=q.window_id,
                 side=Side.DOWN, action=Action.BUY, price=1.0 - my_ask,
-                size_usd=self.cfg.quote_size_usd,
+                size_usd=self.cfg.quote_size_usd, passive=True,
                 reason=f"mm: DOWN barato {1 - q.up_bid:.2f} <= {1 - my_ask:.2f} (spread {spread:.3f})",
             ))
 

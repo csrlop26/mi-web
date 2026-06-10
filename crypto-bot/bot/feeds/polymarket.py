@@ -4,14 +4,19 @@ Descubre los mercados cripto de corto plazo activos vía la Gamma API pública
 (no requiere claves para LEER) y emite PredictionQuote con el libro del CLOB.
 
 Polymarket lista mercados del estilo "Bitcoin Up or Down — June 10, 3:45 PM ET"
-en series de 15 minutos. Este feed:
-  1. Pregunta a la Gamma API por los mercados activos de la serie.
-  2. Sondea el libro de órdenes del CLOB (REST) cada ~1 s.
-  3. Al expirar, emite la resolución usando el resultado oficial.
+en series de 15 minutos. La Gamma API no expone el precio de apertura de la
+ventana, así que open_price se emite a 0 y la estrategia lo captura por su
+cuenta desde el spot de Binance al inicio de cada ventana.
+
+Descubrimiento en tres intentos (la API cambia de forma con frecuencia):
+  1. /events?slug=<serie>            (slug exacto de la serie recurrente)
+  2. /markets?closed=false&order=endDate&ascending=true  + filtro por texto
+  3. /public-search?q=<consulta>     (último recurso)
 """
 from __future__ import annotations
 
 import asyncio
+import json as _json
 import logging
 import time
 
@@ -21,12 +26,14 @@ log = logging.getLogger("polymarket")
 
 GAMMA_API = "https://gamma-api.polymarket.com"
 CLOB_API = "https://clob.polymarket.com"
+DISCOVERY_BACKOFF = 30.0  # segundos entre reintentos si no hay mercado
 
-SERIES_SLUG = {  # series oficiales de mercados up/down de 15 minutos
+SERIES_SLUG = {  # series oficiales de mercados up/down
     "BTC": "bitcoin-up-or-down",
     "ETH": "ethereum-up-or-down",
     "SOL": "solana-up-or-down",
 }
+SEARCH_NAME = {"BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana"}
 
 
 class PolymarketFeed:
@@ -44,8 +51,10 @@ class PolymarketFeed:
                 "Modo paper/live: instala dependencias → pip install -r requirements.txt"
             ) from exc
 
-        async with aiohttp.ClientSession() as http:
-            active: dict[str, dict] = {}  # symbol -> info del mercado vigente
+        async with aiohttp.ClientSession(
+                headers={"User-Agent": "polyedge-bot/1.0"}) as http:
+            active: dict[str, dict] = {}        # symbol -> mercado vigente
+            next_discovery: dict[str, float] = {}  # symbol -> ts mínimo de reintento
             while True:
                 now = time.time()
                 for symbol in self.symbols:
@@ -55,86 +64,145 @@ class PolymarketFeed:
                             res = await self._resolve(http, market)
                             if res is not None:
                                 yield res
+                            active[symbol] = None
+                        if now < next_discovery.get(symbol, 0.0):
+                            continue
                         market = await self._discover(http, symbol)
                         active[symbol] = market
                         if market is None:
+                            next_discovery[symbol] = now + DISCOVERY_BACKOFF
                             continue
                     quote = await self._quote(http, market, now)
                     if quote is not None:
                         yield quote
                 await asyncio.sleep(1.0)
 
+    # ------------------------------------------------------------ descubrimiento
+
     async def _discover(self, http, symbol: str) -> dict | None:
-        """Busca el mercado up/down vigente de la serie del símbolo."""
-        params = {"slug": SERIES_SLUG[symbol], "closed": "false", "limit": "5"}
-        try:
-            async with http.get(f"{GAMMA_API}/events", params=params, timeout=10) as r:
-                events = await r.json()
-        except Exception as exc:
-            log.warning("Gamma API no disponible (%s)", exc)
+        """Busca el mercado up/down vigente probando varias rutas de la API."""
+        markets = (await self._via_event_slug(http, symbol)
+                   or await self._via_market_listing(http, symbol)
+                   or await self._via_search(http, symbol))
+        if not markets:
+            log.warning("%s: sin mercado up/down activo (reintento en %.0f s). "
+                        "Si esto persiste, revisa que la serie '%s' exista en "
+                        "polymarket.com", symbol, DISCOVERY_BACKOFF,
+                        SERIES_SLUG[symbol])
             return None
-        for ev in events or []:
-            for m in ev.get("markets", []):
-                end = m.get("endDateIso") or m.get("endDate")
-                token_ids = m.get("clobTokenIds")
-                if not end or not token_ids:
-                    continue
-                import json as _json
-                tokens = _json.loads(token_ids) if isinstance(token_ids, str) else token_ids
-                end_ts = _parse_iso(end)
-                if end_ts and end_ts > time.time():
-                    log.info("%s: mercado activo '%s' (cierra en %.0f s)",
-                             symbol, m.get("question", "?"), end_ts - time.time())
-                    return {
-                        "symbol": symbol,
-                        "window_id": m.get("conditionId", m.get("id", "?")),
-                        "up_token": tokens[0],   # primer token = "Up"
-                        "end_ts": end_ts,
-                        "open_price": float(m.get("openPrice") or 0) or None,
-                        "condition_id": m.get("conditionId"),
-                    }
-        log.warning("%s: sin mercado up/down activo ahora mismo", symbol)
-        return None
+        # El mercado válido más próximo a expirar = la ventana vigente.
+        markets.sort(key=lambda m: m["end_ts"])
+        m = markets[0]
+        log.info("%s: mercado activo '%s' (cierra en %.0f s)",
+                 symbol, m["question"], m["end_ts"] - time.time())
+        return m
+
+    async def _via_event_slug(self, http, symbol: str) -> list[dict]:
+        data = await self._get(http, f"{GAMMA_API}/events",
+                               {"slug": SERIES_SLUG[symbol], "closed": "false",
+                                "limit": "10"})
+        out = []
+        for ev in data or []:
+            out += self._parse_markets(symbol, ev.get("markets", []))
+        return out
+
+    async def _via_market_listing(self, http, symbol: str) -> list[dict]:
+        data = await self._get(http, f"{GAMMA_API}/markets",
+                               {"closed": "false", "order": "endDate",
+                                "ascending": "true", "limit": "200"})
+        name = SEARCH_NAME[symbol]
+        candidates = [m for m in data or []
+                      if name in (m.get("question") or "").lower()
+                      and "up or down" in (m.get("question") or "").lower()]
+        return self._parse_markets(symbol, candidates)
+
+    async def _via_search(self, http, symbol: str) -> list[dict]:
+        data = await self._get(http, f"{GAMMA_API}/public-search",
+                               {"q": f"{SEARCH_NAME[symbol]} up or down",
+                                "limit_per_type": "10"})
+        events = (data or {}).get("events", []) if isinstance(data, dict) else []
+        out = []
+        for ev in events:
+            out += self._parse_markets(symbol, ev.get("markets", []))
+        return out
+
+    def _parse_markets(self, symbol: str, raw_markets: list) -> list[dict]:
+        """Filtra mercados con tokens y fecha de cierre futura y los normaliza."""
+        now = time.time()
+        out = []
+        for m in raw_markets:
+            end = m.get("endDateIso") or m.get("endDate")
+            token_ids = m.get("clobTokenIds")
+            if not end or not token_ids:
+                continue
+            tokens = (_json.loads(token_ids)
+                      if isinstance(token_ids, str) else token_ids)
+            if not tokens:
+                continue
+            end_ts = _parse_iso(end)
+            if not end_ts or end_ts <= now:
+                continue
+            # Solo ventanas cortas: descarta mercados diarios/mensuales colados.
+            if end_ts - now > self.window_minutes * 60 * 2:
+                continue
+            out.append({
+                "symbol": symbol,
+                "window_id": m.get("conditionId") or str(m.get("id", "?")),
+                "question": m.get("question", "?"),
+                "up_token": tokens[0],   # primer token = "Up"
+                "end_ts": end_ts,
+                "condition_id": m.get("conditionId"),
+            })
+        return out
+
+    async def _get(self, http, url: str, params: dict):
+        try:
+            async with http.get(url, params=params, timeout=10) as r:
+                if r.status != 200:
+                    log.debug("GET %s -> HTTP %d", url, r.status)
+                    return None
+                return await r.json()
+        except Exception as exc:
+            log.debug("GET %s falló: %s", url, exc)
+            return None
+
+    # ----------------------------------------------------------------- mercado
 
     async def _quote(self, http, market: dict, now: float) -> PredictionQuote | None:
-        try:
-            async with http.get(f"{CLOB_API}/book",
-                                params={"token_id": market["up_token"]},
-                                timeout=10) as r:
-                book = await r.json()
-        except Exception as exc:
-            log.debug("CLOB book error: %s", exc)
-            return None
-        bids = book.get("bids") or []
-        asks = book.get("asks") or []
+        book = await self._get(http, f"{CLOB_API}/book",
+                               {"token_id": market["up_token"]})
+        bids = (book or {}).get("bids") or []
+        asks = (book or {}).get("asks") or []
         if not bids or not asks:
+            return None
+        # El libro del CLOB llega ordenado desde el peor precio: el mejor
+        # bid es el más alto y el mejor ask el más bajo.
+        best_bid = max(float(b["price"]) for b in bids)
+        best_ask = min(float(a["price"]) for a in asks)
+        if best_bid <= 0 or best_ask >= 1 or best_bid >= best_ask:
             return None
         return PredictionQuote(
             symbol=market["symbol"], window_id=market["window_id"],
-            open_price=market.get("open_price") or 0.0,
-            up_bid=float(bids[0]["price"]), up_ask=float(asks[0]["price"]),
+            open_price=0.0,  # no lo da la API: lo captura la estrategia
+            up_bid=best_bid, up_ask=best_ask,
             seconds_remaining=max(market["end_ts"] - now, 0.0), ts=now,
         )
 
     async def _resolve(self, http, market: dict) -> WindowResolution | None:
         """Consulta el resultado oficial cuando la ventana expira."""
         await asyncio.sleep(5)  # margen para que el oráculo publique
-        try:
-            async with http.get(f"{GAMMA_API}/markets",
-                                params={"condition_ids": market["condition_id"]},
-                                timeout=10) as r:
-                data = await r.json()
-        except Exception:
-            return None
+        data = await self._get(http, f"{GAMMA_API}/markets",
+                               {"condition_ids": market["condition_id"]})
         for m in data or []:
             prices = m.get("outcomePrices")
             if prices:
-                import json as _json
                 p = _json.loads(prices) if isinstance(prices, str) else prices
                 return WindowResolution(
                     symbol=market["symbol"], window_id=market["window_id"],
                     up_won=float(p[0]) > 0.5, close_price=0.0, ts=time.time(),
                 )
+        log.warning("%s: la ventana %s expiró sin resultado publicado aún",
+                    market["symbol"], market["question"])
         return None
 
 

@@ -69,6 +69,7 @@ class Signal:
     price: float       # probabilidad a la que está dispuesta a cruzar
     size_usd: float
     reason: str
+    passive: bool = False  # True = orden maker (reposa en el libro, sin fee taker)
 
 
 @dataclass

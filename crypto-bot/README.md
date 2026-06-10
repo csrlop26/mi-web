@@ -40,6 +40,45 @@ Ambas estrategias corren a la vez bajo un **gestor de riesgo** que manda sobre t
 
 ---
 
+## 💶 v3 — Adaptado a capital pequeño (100–300 €)
+
+Con poco capital el enemigo número uno son las **comisiones**: Polymarket
+cobra ~1.8% (taker) en mercados cripto. Un trade de 5 € paga 0.09 € de fee
+por cruzar — un edge pequeño se evapora entero. La v3 ataca eso de frente:
+
+| Cambio | Por qué |
+|--------|---------|
+| **Edges netos de comisiones** | El bot solo entra si el hueco supera `min_edge` + 2× la fee. Un edge que no paga las comisiones no es un edge. |
+| **Mantener hasta resolución** | Cobrar el contrato al resolver la ventana NO paga fee; vender antes sí. El bot ahora solo vende antes si el mercado pasa a sobrevalorar su lado más de lo que cuesta la comisión. |
+| **Market maker 100% maker** | Las órdenes pasivas no pagan taker fee (0%). Con capital pequeño, el MM es la pata más eficiente en costes. |
+| **Apuestas del 10% (antes 5%)** | Con 200 € son trades de ~20 €: la fee fija porcentual deja de comerse la oportunidad. Menos posiciones simultáneas, más selectivas. |
+| **Límites de riesgo a escala** | Pérdida diaria 10%, kill switch al 25%: a esta escala una mala racha normal de 4-5 trades no debe apagar el bot. |
+
+**Capital y expectativas honestas:**
+
+| Capital | Veredicto |
+|---------|-----------|
+| 100 € | Operable, pero la fee pesa: solo entrarán los huecos grandes |
+| 200 € | Punto de partida razonable (config por defecto) |
+| 300 € | Margen cómodo; el compounding empieza a notarse |
+
+---
+
+## 🔧 Registro de bugs (encontrados en paper trading real)
+
+**Bug #1 — El bot estuvo 1 h en paper sin operar (corregido en v3).**
+Causa: la Gamma API de Polymarket no publica el precio de apertura de la
+ventana; el código lo esperaba y al recibir 0 el modelo de probabilidad
+devolvía `None` → ambas estrategias quedaban mudas para siempre.
+Arreglo: el bot ahora captura la apertura por sí mismo (el primer precio de
+Binance al inicio de cada ventana). Si descubre una ventana ya empezada, la
+salta y opera desde la siguiente (cada 15 min hay otra). Además el
+descubrimiento de mercados prueba 3 rutas de la API y cada 60 s se imprime
+un diagnóstico por símbolo (modelo vs mercado y edge) para ver en vivo por
+qué se opera o no.
+
+---
+
 ## ⚠️ Léeme primero
 
 - El bot arranca **siempre en modo PAPER** (dinero ficticio). Nadie pierde un céntimo hasta que tú lo decidas.

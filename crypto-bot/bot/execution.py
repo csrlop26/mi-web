@@ -18,6 +18,7 @@ class PaperExecutor:
     def __init__(self, fees_cfg):
         self.slippage = fees_cfg.slippage_bps / 10_000.0
         self.taker_fee = fees_cfg.taker_bps / 10_000.0
+        self.maker_fee = fees_cfg.maker_bps / 10_000.0
 
     def execute(self, signal: Signal, quote: PredictionQuote, ts: float) -> Fill | None:
         # Precio del contrato según el lado y la dirección de la orden.
@@ -26,11 +27,13 @@ class PaperExecutor:
         else:
             px = (1.0 - quote.up_bid) if signal.action is Action.BUY else (1.0 - quote.up_ask)
 
-        # Slippage en contra, acotado al rango válido de probabilidad.
-        if signal.action is Action.BUY:
-            px = min(0.999, px * (1.0 + self.slippage))
-        else:
-            px = max(0.001, px * (1.0 - self.slippage))
+        # Las órdenes pasivas (maker) ejecutan a su precio, sin slippage:
+        # somos nosotros los que esperamos en el libro.
+        if not signal.passive:
+            if signal.action is Action.BUY:
+                px = min(0.999, px * (1.0 + self.slippage))
+            else:
+                px = max(0.001, px * (1.0 - self.slippage))
 
         # Respeta el precio límite de la señal.
         if signal.action is Action.BUY and px > signal.price + 1e-9:
@@ -39,7 +42,7 @@ class PaperExecutor:
             return None
 
         shares = signal.size_usd / px
-        fee = signal.size_usd * self.taker_fee
+        fee = signal.size_usd * (self.maker_fee if signal.passive else self.taker_fee)
         return Fill(signal=signal, fill_price=px, shares=shares, fee_usd=fee, ts=ts)
 
 
