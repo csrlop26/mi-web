@@ -1,0 +1,42 @@
+# 📌 NOTA — Ultra-resumen de la sesión (2026-06-10)
+
+Bot: **PolyEdge** (`crypto-bot/`). Rama: `claude/crypto-bot-models-ynsjxm`.
+
+## Qué se hizo hoy (v4 — Opción C)
+
+1. **Doble duración simultánea**: el bot opera ventanas de **5 y 15 min a la
+   vez** (BTC+ETH+SOL = 6 mercados en paralelo).
+2. **Asignador de régimen** (`bot/allocator.py`): mide la volatilidad real de
+   BTC en vivo y reparte el capital — vol alta → 80% del peso a 5 min;
+   vol baja → 80% a 15 min; entre medias, lineal.
+3. **Tope absoluto por orden** ($250): el compounding no puede crecer por
+   encima de lo que los libros de 5 min absorben de verdad.
+4. **Capital pequeño (100–300 €)**: config por defecto a 200 €, trades del
+   10% del equity, edges netos de la fee real de Polymarket (1.8% taker;
+   maker 0% → el market maker no paga comisión).
+5. **PnL por duración** en el informe de sesión (`pnl_por_duracion`).
+6. Fix previo clave (v3): Polymarket no publica el precio de apertura → el
+   bot lo captura solo desde Binance. Era la causa del paper mudo 1 h.
+
+## Validación (sim, 5 semillas, fees reales, 200 €)
+
+5/5 sesiones positivas. Ambas duraciones aportan PnL; la de 5 min domina con
+volatilidad. ⚠️ El simulador lleva la ineficiencia incorporada SIEMPRE: sus
+cifras validan la mecánica, no son expectativa de retorno real.
+
+## Siguiente paso
+
+```bash
+cd crypto-bot
+pip install -r requirements.txt
+python3 main.py --mode paper     # Fase 2: datos reales, dinero ficticio
+```
+1–2 semanas de paper → si los números aguantan, Fase 3 con 50–100 €.
+
+## Pendiente
+
+- **Sentinel-Thanos**: este entorno solo tiene acceso a `csrlop26/mi-web`.
+  Para llevar el bot allí: clona esta rama y copia la carpeta `crypto-bot/`,
+  o añade el repo Sentinel-Thanos al entorno de Claude Code y pídelo.
+- Ejecución live (`bot/execution.py`): mapeo final de token_id antes de
+  operar con dinero real. Bloqueada a propósito.

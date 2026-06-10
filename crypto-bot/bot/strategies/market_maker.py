@@ -32,10 +32,12 @@ MIN_VOL_POINTS = 10
 class MarketMakerStrategy:
     name = "market_maker"
 
-    def __init__(self, cfg, fair_price_fn):
-        """fair_price_fn(quote) -> probabilidad justa estimada de UP (o None)."""
+    def __init__(self, cfg, fair_price_fn, size_mult_fn=None):
+        """fair_price_fn(quote) -> probabilidad justa estimada de UP (o None).
+        size_mult_fn(window_seconds) pondera el tamaño según el régimen."""
         self.cfg = cfg
         self.fair_price = fair_price_fn
+        self.size_mult_fn = size_mult_fn or (lambda ws: 1.0)
         self.last_quoted_mid: dict[tuple, float] = {}
         self.fair_history: dict[tuple, deque] = {}  # (ts, fair) por mercado
         # inventario propio por (symbol, window_id, side) en USD de coste
@@ -62,7 +64,7 @@ class MarketMakerStrategy:
     def on_quote(self, q: PredictionQuote) -> list[Signal]:
         if not self.cfg.enabled:
             return []
-        if q.seconds_remaining < self.cfg.min_seconds_remaining:
+        if q.seconds_remaining < self.cfg.min_remaining_frac * q.window_seconds:
             return []  # retirada final: demasiado riesgo por fill
 
         fair = self.fair_price(q)
@@ -92,6 +94,7 @@ class MarketMakerStrategy:
         my_bid = max(0.01, center - half)   # compro UP aquí
         my_ask = min(0.99, center + half)   # vendo UP aquí (= compro DOWN a 1-ask)
 
+        size = self.cfg.quote_size_usd * self.size_mult_fn(q.window_seconds)
         signals: list[Signal] = []
 
         # El mercado nos cruza el bid: alguien vende UP por debajo de nuestro bid.
@@ -99,7 +102,7 @@ class MarketMakerStrategy:
             signals.append(Signal(
                 strategy=self.name, symbol=q.symbol, window_id=q.window_id,
                 side=Side.UP, action=Action.BUY, price=my_bid,
-                size_usd=self.cfg.quote_size_usd, passive=True,
+                size_usd=size, passive=True, window_seconds=q.window_seconds,
                 reason=f"mm: UP barato {q.up_ask:.2f} <= bid {my_bid:.2f} (spread {spread:.3f})",
             ))
 
@@ -108,7 +111,7 @@ class MarketMakerStrategy:
             signals.append(Signal(
                 strategy=self.name, symbol=q.symbol, window_id=q.window_id,
                 side=Side.DOWN, action=Action.BUY, price=1.0 - my_ask,
-                size_usd=self.cfg.quote_size_usd, passive=True,
+                size_usd=size, passive=True, window_seconds=q.window_seconds,
                 reason=f"mm: DOWN barato {1 - q.up_bid:.2f} <= {1 - my_ask:.2f} (spread {spread:.3f})",
             ))
 

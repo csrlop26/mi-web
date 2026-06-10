@@ -15,6 +15,7 @@ import logging
 import math
 
 from .events import Action, Fill, PredictionQuote, Signal, SpotTick, WindowResolution
+from .allocator import RegimeAllocator
 from .execution import PaperExecutor
 from .portfolio import Portfolio
 from .reporting import Reporter
@@ -36,14 +37,20 @@ class Engine:
 
         # Tamaño sobre el equity vivo: las ganancias componen automáticamente.
         def max_trade_usd() -> float:
-            return self.portfolio.equity() * cfg.risk.max_trade_pct
+            return min(self.portfolio.equity() * cfg.risk.max_trade_pct,
+                       cfg.risk.max_trade_usd)
 
         self.momentum = MomentumLagStrategy(
             cfg.momentum_lag, cfg.sim.annual_volatility, max_trade_usd,
-            window_seconds=cfg.window_minutes * 60,
             fee_rate=cfg.fees.taker_bps / 10_000.0)
+        self.allocator = RegimeAllocator(
+            cfg.allocator,
+            vol_fn=lambda: self.momentum.annual_vol(cfg.allocator.lead_symbol),
+            durations_minutes=cfg.durations_minutes)
+        self.momentum.size_mult_fn = self.allocator.size_multiplier
         self.market_maker = MarketMakerStrategy(
-            cfg.market_maker, self.momentum.model_up_probability)
+            cfg.market_maker, self.momentum.model_up_probability,
+            size_mult_fn=self.allocator.size_multiplier)
         self.last_quote: dict[tuple, PredictionQuote] = {}
 
     # ------------------------------------------------------------------ bucle
@@ -103,11 +110,8 @@ class Engine:
             pos = self.portfolio.positions.get(key)
             if pos is None:
                 return
-            sig = Signal(strategy=sig.strategy, symbol=sig.symbol,
-                         window_id=sig.window_id, side=sig.side,
-                         action=sig.action, price=sig.price,
-                         size_usd=pos.shares * max(sig.price, 0.01),
-                         reason=sig.reason)
+            import dataclasses as _dc
+            sig = _dc.replace(sig, size_usd=pos.shares * max(sig.price, 0.01))
 
         approved = self.risk.approve(
             sig, self.portfolio.equity(),

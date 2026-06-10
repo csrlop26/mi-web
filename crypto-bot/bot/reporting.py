@@ -73,6 +73,8 @@ class Reporter:
             "ventanas_resueltas": self.resolutions,
             "pnl_por_estrategia": {k: round(v, 2)
                                    for k, v in p.pnl_by_strategy.items()},
+            "pnl_por_duracion": {k: round(v, 2)
+                                 for k, v in p.pnl_by_duration.items()},
             "kill_switch": self.risk.killed,
             "fills": self.fills,
         }
@@ -89,5 +91,7 @@ class Reporter:
                  p.trades, report["winrate_pct"])
         for name, pnl in report["pnl_por_estrategia"].items():
             log.info("    - %-13s: $%+.2f", name, pnl)
+        for name, pnl in report["pnl_por_duracion"].items():
+            log.info("    - ventana %-6s: $%+.2f", name, pnl)
         log.info("  Informe completo : %s", path)
         log.info("=" * 62)

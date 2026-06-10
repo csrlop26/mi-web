@@ -43,16 +43,18 @@ class MomentumLagStrategy:
     name = "momentum_lag"
 
     def __init__(self, cfg, fallback_volatility: float, max_trade_usd_fn,
-                 window_seconds: float, fee_rate: float = 0.0):
+                 fee_rate: float = 0.0, size_mult_fn=None):
         """max_trade_usd_fn() devuelve el tamaño máximo actual por operación
         (equity vivo × max_trade_pct) → reinversión automática de ganancias.
         fee_rate es la comisión taker por trade (1.8% en cripto de Polymarket):
-        el edge exigido para entrar se ajusta para que el trade la pague."""
+        el edge exigido para entrar se ajusta para que el trade la pague.
+        size_mult_fn(window_seconds) pondera el tamaño según el régimen de
+        volatilidad (asignador 5/15 min); por defecto 1."""
         self.cfg = cfg
         self.fallback_vol = fallback_volatility
         self.max_trade_usd_fn = max_trade_usd_fn
-        self.window_seconds = window_seconds
         self.fee_rate = fee_rate
+        self.size_mult_fn = size_mult_fn or (lambda ws: 1.0)
         self.last_spot: dict[str, float] = {}
         self.last_tick_ts: dict[str, float] = {}
         self.spot_history: dict[str, deque] = {}    # (ts, price) recientes
@@ -114,7 +116,7 @@ class MomentumLagStrategy:
         key = (q.symbol, q.window_id)
         if key not in self.window_open:
             spot = self.last_spot.get(q.symbol)
-            fresh = q.seconds_remaining >= 0.8 * self.window_seconds
+            fresh = q.seconds_remaining >= 0.8 * q.window_seconds
             self.window_open[key] = spot if (fresh and spot) else None
             if self.window_open[key] is None:
                 log.info("%s %s: ventana descubierta a mitad; se opera la siguiente",
@@ -165,10 +167,11 @@ class MomentumLagStrategy:
                     side=held, action=Action.SELL, price=max(exit_px - 0.02, 0.001),
                     size_usd=float("inf"),  # el motor lo traduce a "toda la posición"
                     reason=f"cierre: edge {edge:+.3f} <= {self.cfg.take_profit_edge}",
+                    window_seconds=q.window_seconds,
                 ))
             return signals
 
-        if q.seconds_remaining < self.cfg.min_seconds_remaining:
+        if q.seconds_remaining < self.cfg.min_remaining_frac * q.window_seconds:
             return []  # demasiado cerca de la resolución: el hueco ya no paga
 
         # ¿Hay hueco suficiente en algún lado? El umbral incluye las comisiones
@@ -200,14 +203,16 @@ class MomentumLagStrategy:
     def _entry(self, q: PredictionQuote, side: Side, price: float,
                edge: float, p_model: float) -> Signal:
         # Tamaño proporcional al hueco (más convicción, más tamaño), con tope
-        # sobre el equity ACTUAL → las ganancias componen.
-        max_usd = self.max_trade_usd_fn()
+        # sobre el equity ACTUAL → las ganancias componen. El asignador de
+        # régimen pondera además según la duración de la ventana (5 vs 15 min).
+        max_usd = self.max_trade_usd_fn() * self.size_mult_fn(q.window_seconds)
         size = max_usd * min(1.0, edge / (2 * self.cfg.min_edge))
         return Signal(
             strategy=self.name, symbol=q.symbol, window_id=q.window_id,
             side=side, action=Action.BUY,
             price=min(price + 0.01, 0.99), size_usd=max(size, 1.0),
             reason=f"lag: modelo={p_model:.2f} mercado={q.up_mid:.2f} edge={edge:+.3f}",
+            window_seconds=q.window_seconds,
         )
 
     # ------------------------------------------------------------ contabilidad

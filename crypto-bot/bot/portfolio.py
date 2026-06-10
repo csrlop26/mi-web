@@ -24,6 +24,7 @@ class Portfolio:
         self.wins = 0
         self.losses = 0
         self.pnl_by_strategy: dict[str, float] = defaultdict(float)
+        self.pnl_by_duration: dict[str, float] = defaultdict(float)
 
     # ------------------------------------------------------------------ fills
 
@@ -40,7 +41,8 @@ class Portfolio:
             if pos is None:
                 pos = Position(strategy=s.strategy, symbol=s.symbol,
                                window_id=s.window_id, side=s.side,
-                               shares=0.0, cost_usd=0.0)
+                               shares=0.0, cost_usd=0.0,
+                               window_seconds=s.window_seconds)
                 self.positions[key] = pos
             pos.shares += fill.shares
             pos.cost_usd += cost
@@ -57,7 +59,7 @@ class Portfolio:
             self.cash += proceeds - fill.fee_usd
             pos.shares -= shares
             pos.cost_usd -= shares * avg
-            self._book_pnl(s.strategy, pnl)
+            self._book_pnl(s.strategy, pnl, pos.window_seconds)
             if pos.shares <= 1e-9:
                 del self.positions[key]
 
@@ -72,15 +74,18 @@ class Portfolio:
             payout = pos.shares if pos.side is winning else 0.0
             pnl = payout - pos.cost_usd
             self.cash += payout
-            self._book_pnl(pos.strategy, pnl)
+            self._book_pnl(pos.strategy, pnl, pos.window_seconds)
             log.info("Resuelta %s %s/%s %s: %+.2f USD",
                      pos.strategy, res.symbol, res.window_id[-6:],
                      pos.side.value, pnl)
         self.last_quotes.pop((res.symbol, res.window_id), None)
 
-    def _book_pnl(self, strategy: str, pnl: float) -> None:
+    def _book_pnl(self, strategy: str, pnl: float,
+                  window_seconds: float = 0.0) -> None:
         self.realized_pnl += pnl
         self.pnl_by_strategy[strategy] += pnl
+        if window_seconds:
+            self.pnl_by_duration[f"{int(window_seconds // 60)}min"] += pnl
         if pnl >= 0:
             self.wins += 1
         else:

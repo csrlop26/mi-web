@@ -8,15 +8,24 @@ from typing import Any
 
 
 @dataclass(frozen=True)
+class AllocatorCfg:
+    lead_symbol: str
+    vol_low: float
+    vol_high: float
+    min_weight_short: float
+    max_weight_short: float
+
+
+@dataclass(frozen=True)
 class MomentumLagCfg:
     enabled: bool
     min_edge: float
     take_profit_edge: float
-    min_seconds_remaining: float
     max_entry_price: float
     momentum_window_seconds: float
     lead_symbol: str
     cross_beta: float
+    min_remaining_frac: float
 
 
 @dataclass(frozen=True)
@@ -29,13 +38,14 @@ class MarketMakerCfg:
     quote_size_usd: float
     max_inventory_usd: float
     requote_threshold: float
-    min_seconds_remaining: float
     inventory_skew: float
+    min_remaining_frac: float
 
 
 @dataclass(frozen=True)
 class RiskCfg:
     max_trade_pct: float
+    max_trade_usd: float        # tope absoluto por orden (liquidez del libro)
     daily_loss_limit_pct: float
     max_drawdown_pct: float
     max_open_positions: int
@@ -64,7 +74,8 @@ class SimCfg:
 class Config:
     bankroll: float
     symbols: list[str]
-    window_minutes: int
+    durations_minutes: list[int]
+    allocator: AllocatorCfg
     momentum_lag: MomentumLagCfg
     market_maker: MarketMakerCfg
     risk: RiskCfg
@@ -83,7 +94,8 @@ def load(path: str | pathlib.Path) -> Config:
     cfg = Config(
         bankroll=float(_require(raw, "bankroll")),
         symbols=list(_require(raw, "symbols")),
-        window_minutes=int(_require(raw, "window_minutes")),
+        durations_minutes=sorted(int(d) for d in _require(raw, "durations_minutes")),
+        allocator=AllocatorCfg(**_require(raw, "allocator")),
         momentum_lag=MomentumLagCfg(**_require(raw, "momentum_lag")),
         market_maker=MarketMakerCfg(**_require(raw, "market_maker")),
         risk=RiskCfg(**_require(raw, "risk")),
@@ -96,4 +108,6 @@ def load(path: str | pathlib.Path) -> Config:
         raise ValueError("config.json: risk.max_trade_pct fuera de rango (0, 0.25]")
     if not cfg.symbols:
         raise ValueError("config.json: symbols no puede estar vacío")
+    if not cfg.durations_minutes:
+        raise ValueError("config.json: durations_minutes no puede estar vacío")
     return cfg

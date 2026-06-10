@@ -28,20 +28,28 @@ GAMMA_API = "https://gamma-api.polymarket.com"
 CLOB_API = "https://clob.polymarket.com"
 DISCOVERY_BACKOFF = 30.0  # segundos entre reintentos si no hay mercado
 
-SERIES_SLUG = {  # series oficiales de mercados up/down
-    "BTC": "bitcoin-up-or-down",
-    "ETH": "ethereum-up-or-down",
-    "SOL": "solana-up-or-down",
+SERIES_SLUG = {  # series oficiales de mercados up/down por duración (min)
+    15: {"BTC": "bitcoin-up-or-down",
+         "ETH": "ethereum-up-or-down",
+         "SOL": "solana-up-or-down"},
+    5:  {"BTC": "btc-updown-5m",
+         "ETH": "eth-updown-5m",
+         "SOL": "sol-updown-5m"},
 }
 SEARCH_NAME = {"BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana"}
 
 
 class PolymarketFeed:
-    def __init__(self, symbols: list[str], window_minutes: int):
-        self.symbols = [s for s in symbols if s in SERIES_SLUG]
-        self.window_minutes = window_minutes
+    def __init__(self, symbols: list[str], durations_minutes: list[int]):
+        self.symbols = [s for s in symbols if s in SEARCH_NAME]
+        self.durations = [d for d in sorted(set(durations_minutes))
+                          if d in SERIES_SLUG]
         if not self.symbols:
             raise SystemExit(f"Polymarket: ningún símbolo soportado en {symbols}")
+        if not self.durations:
+            raise SystemExit(
+                f"Polymarket: ninguna duración soportada en {durations_minutes} "
+                f"(disponibles: {sorted(SERIES_SLUG)})")
 
     async def events(self):
         try:
@@ -53,60 +61,62 @@ class PolymarketFeed:
 
         async with aiohttp.ClientSession(
                 headers={"User-Agent": "polyedge-bot/1.0"}) as http:
-            active: dict[str, dict] = {}        # symbol -> mercado vigente
-            next_discovery: dict[str, float] = {}  # symbol -> ts mínimo de reintento
+            active: dict[tuple, dict] = {}        # (symbol, dur) -> mercado vigente
+            next_discovery: dict[tuple, float] = {}
             while True:
                 now = time.time()
                 for symbol in self.symbols:
-                    market = active.get(symbol)
-                    if market is None or now >= market["end_ts"]:
-                        if market is not None:
-                            res = await self._resolve(http, market)
-                            if res is not None:
-                                yield res
-                            active[symbol] = None
-                        if now < next_discovery.get(symbol, 0.0):
-                            continue
-                        market = await self._discover(http, symbol)
-                        active[symbol] = market
-                        if market is None:
-                            next_discovery[symbol] = now + DISCOVERY_BACKOFF
-                            continue
-                    quote = await self._quote(http, market, now)
-                    if quote is not None:
-                        yield quote
+                    for dur in self.durations:
+                        key = (symbol, dur)
+                        market = active.get(key)
+                        if market is None or now >= market["end_ts"]:
+                            if market is not None:
+                                res = await self._resolve(http, market)
+                                if res is not None:
+                                    yield res
+                                active[key] = None
+                            if now < next_discovery.get(key, 0.0):
+                                continue
+                            market = await self._discover(http, symbol, dur)
+                            active[key] = market
+                            if market is None:
+                                next_discovery[key] = now + DISCOVERY_BACKOFF
+                                continue
+                        quote = await self._quote(http, market, now)
+                        if quote is not None:
+                            yield quote
                 await asyncio.sleep(1.0)
 
     # ------------------------------------------------------------ descubrimiento
 
-    async def _discover(self, http, symbol: str) -> dict | None:
+    async def _discover(self, http, symbol: str, dur: int) -> dict | None:
         """Busca el mercado up/down vigente probando varias rutas de la API."""
-        markets = (await self._via_event_slug(http, symbol)
-                   or await self._via_market_listing(http, symbol)
-                   or await self._via_search(http, symbol))
+        markets = (await self._via_event_slug(http, symbol, dur)
+                   or await self._via_market_listing(http, symbol, dur)
+                   or await self._via_search(http, symbol, dur))
         if not markets:
-            log.warning("%s: sin mercado up/down activo (reintento en %.0f s). "
+            log.warning("%s %dm: sin mercado up/down activo (reintento en %.0f s). "
                         "Si esto persiste, revisa que la serie '%s' exista en "
-                        "polymarket.com", symbol, DISCOVERY_BACKOFF,
-                        SERIES_SLUG[symbol])
+                        "polymarket.com", symbol, dur, DISCOVERY_BACKOFF,
+                        SERIES_SLUG[dur][symbol])
             return None
         # El mercado válido más próximo a expirar = la ventana vigente.
         markets.sort(key=lambda m: m["end_ts"])
         m = markets[0]
-        log.info("%s: mercado activo '%s' (cierra en %.0f s)",
-                 symbol, m["question"], m["end_ts"] - time.time())
+        log.info("%s %dm: mercado activo '%s' (cierra en %.0f s)",
+                 symbol, dur, m["question"], m["end_ts"] - time.time())
         return m
 
-    async def _via_event_slug(self, http, symbol: str) -> list[dict]:
+    async def _via_event_slug(self, http, symbol: str, dur: int) -> list[dict]:
         data = await self._get(http, f"{GAMMA_API}/events",
-                               {"slug": SERIES_SLUG[symbol], "closed": "false",
-                                "limit": "10"})
+                               {"slug": SERIES_SLUG[dur][symbol],
+                                "closed": "false", "limit": "10"})
         out = []
         for ev in data or []:
-            out += self._parse_markets(symbol, ev.get("markets", []))
+            out += self._parse_markets(symbol, dur, ev.get("markets", []))
         return out
 
-    async def _via_market_listing(self, http, symbol: str) -> list[dict]:
+    async def _via_market_listing(self, http, symbol: str, dur: int) -> list[dict]:
         data = await self._get(http, f"{GAMMA_API}/markets",
                                {"closed": "false", "order": "endDate",
                                 "ascending": "true", "limit": "200"})
@@ -114,19 +124,19 @@ class PolymarketFeed:
         candidates = [m for m in data or []
                       if name in (m.get("question") or "").lower()
                       and "up or down" in (m.get("question") or "").lower()]
-        return self._parse_markets(symbol, candidates)
+        return self._parse_markets(symbol, dur, candidates)
 
-    async def _via_search(self, http, symbol: str) -> list[dict]:
+    async def _via_search(self, http, symbol: str, dur: int) -> list[dict]:
         data = await self._get(http, f"{GAMMA_API}/public-search",
                                {"q": f"{SEARCH_NAME[symbol]} up or down",
                                 "limit_per_type": "10"})
         events = (data or {}).get("events", []) if isinstance(data, dict) else []
         out = []
         for ev in events:
-            out += self._parse_markets(symbol, ev.get("markets", []))
+            out += self._parse_markets(symbol, dur, ev.get("markets", []))
         return out
 
-    def _parse_markets(self, symbol: str, raw_markets: list) -> list[dict]:
+    def _parse_markets(self, symbol: str, dur: int, raw_markets: list) -> list[dict]:
         """Filtra mercados con tokens y fecha de cierre futura y los normaliza."""
         now = time.time()
         out = []
@@ -142,8 +152,9 @@ class PolymarketFeed:
             end_ts = _parse_iso(end)
             if not end_ts or end_ts <= now:
                 continue
-            # Solo ventanas cortas: descarta mercados diarios/mensuales colados.
-            if end_ts - now > self.window_minutes * 60 * 2:
+            # Solo la duración pedida: descarta mercados de otras duraciones
+            # (la ventana vigente expira como mucho en `dur` minutos).
+            if end_ts - now > dur * 60 * 1.5:
                 continue
             out.append({
                 "symbol": symbol,
@@ -151,6 +162,7 @@ class PolymarketFeed:
                 "question": m.get("question", "?"),
                 "up_token": tokens[0],   # primer token = "Up"
                 "end_ts": end_ts,
+                "window_seconds": dur * 60.0,
                 "condition_id": m.get("conditionId"),
             })
         return out
@@ -185,7 +197,8 @@ class PolymarketFeed:
             symbol=market["symbol"], window_id=market["window_id"],
             open_price=0.0,  # no lo da la API: lo captura la estrategia
             up_bid=best_bid, up_ask=best_ask,
-            seconds_remaining=max(market["end_ts"] - now, 0.0), ts=now,
+            seconds_remaining=max(market["end_ts"] - now, 0.0),
+            window_seconds=market["window_seconds"], ts=now,
         )
 
     async def _resolve(self, http, market: dict) -> WindowResolution | None:

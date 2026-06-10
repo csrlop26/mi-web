@@ -1,7 +1,8 @@
 # 🤖 PolyEdge — Bot de Mercados de Predicción (Polymarket)
 
 Bot automatizado que opera en los mercados de predicción cripto de Polymarket
-(mercados "up or down" de BTC/ETH/SOL a 15 minutos) combinando dos estrategias:
+(mercados "up or down" de BTC/ETH/SOL a **5 y 15 minutos simultáneos**)
+combinando dos estrategias:
 
 | Estrategia | Apodo | Qué hace |
 |------------|-------|----------|
@@ -9,6 +10,42 @@ Bot automatizado que opera en los mercados de predicción cripto de Polymarket
 | **C — Market Maker** | "El casino" | Pone precios de compra y venta a la vez y cobra la diferencia, gane quien gane |
 
 Ambas estrategias corren a la vez bajo un **gestor de riesgo** que manda sobre todo lo demás.
+
+---
+
+## 🔀 v4 — Opción C: doble duración con asignador de régimen
+
+El bot opera las ventanas de **5 min y 15 min A LA VEZ** y reparte el capital
+según la volatilidad realizada de BTC (medida en vivo, EWMA tick a tick):
+
+```
+vol ALTA  (≥ 0.85 anualizada) → 80% del peso a 5 min   (el lag pesa más)
+vol BAJA  (≤ 0.45 anualizada) → 80% del peso a 15 min  (más señal estable)
+entre medias                  → interpolación lineal
+```
+
+Por qué: el retraso de Polymarket es siempre ~5 s. Con volatilidad alta esos
+5 s mueven mucho precio → el edge en la ventana corta es enorme. Con mercado
+tranquilo ese mismo lag apenas crea hueco y la ventana larga rinde más.
+
+- El peso se aplica como multiplicador de tamaño por operación (la duración
+  favorecida opera a 1×, la otra baja hasta 0.4×).
+- `config.json → durations_minutes: [5, 15]` y bloque `allocator`.
+- El informe de sesión desglosa el PnL por duración (`pnl_por_duracion`).
+- Benchmark previo (sólo una duración, mismas semillas): 5 min media +4542%,
+  15 min media +556% — pero 5 min con varianza brutal (+59% a +9231%).
+  La Opción C captura lo mejor de ambos sin apostarlo todo a uno.
+- **Tope absoluto por orden** (`risk.max_trade_usd`, $250): el % sobre equity
+  compone, pero los libros de 5 min no absorben órdenes de miles de dólares.
+  El tope mantiene los tamaños dentro de la liquidez real de Polymarket
+  (también frena los resultados de fantasía del simulador).
+
+**Validación v4 (bankroll 200 €, fees reales 1.8%, 5 semillas, 2.5 h de
+mercado simulado):** 5/5 positivas; el PnL por duración confirma que ambas
+ventanas aportan y que la de 5 min domina cuando hay volatilidad. Cifras del
+simulador = mecánica validada, NO expectativa real: el sim lleva el lag
+incorporado siempre; el mercado real lo ofrece a ratos. La expectativa real
+la dirá la Fase 2 (paper).
 
 ---
 
@@ -198,8 +235,11 @@ con todas las operaciones, el PnL y las métricas de cada estrategia.
 | `market_maker.min_spread` / `max_spread` | Límites del spread dinámico | 0.015 / 0.08 |
 | `market_maker.max_inventory_usd` | Inventario máximo por lado | 100 |
 | `market_maker.inventory_skew` | Fuerza del sesgo para soltar inventario | 0.6 |
-| `risk.max_trade_pct` | % máximo del equity por operación (compone) | 0.05 |
-| `risk.daily_loss_limit_pct` | Pérdida diaria que apaga el bot | 0.07 |
-| `risk.max_drawdown_pct` | Drawdown que activa el kill switch | 0.20 |
+| `durations_minutes` | Ventanas operadas en paralelo | 5 y 15 |
+| `allocator.vol_low/vol_high` | Umbrales del régimen de volatilidad | 0.45 / 0.85 |
+| `risk.max_trade_pct` | % máximo del equity por operación (compone) | 0.10 |
+| `risk.max_trade_usd` | Tope absoluto por orden (liquidez del libro) | 250 |
+| `risk.daily_loss_limit_pct` | Pérdida diaria que apaga el bot | 0.10 |
+| `risk.max_drawdown_pct` | Drawdown que activa el kill switch | 0.25 |
 
 Empieza conservador. Sube agresividad solo con datos de las fases 1 y 2 delante.

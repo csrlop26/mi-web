@@ -25,7 +25,8 @@ def build_parser() -> argparse.ArgumentParser:
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--mode", choices=["sim", "paper", "live"], default="sim")
     p.add_argument("--config", default=str(pathlib.Path(__file__).parent / "config.json"))
-    p.add_argument("--windows", type=int, help="(sim) nº de ventanas de 15 min")
+    p.add_argument("--windows", type=int,
+                   help="(sim) nº de ventanas de la duración más larga")
     p.add_argument("--speed", type=float, help="(sim) aceleración del reloj")
     p.add_argument("--seed", type=int, help="(sim) semilla para reproducir una sesión")
     p.add_argument("--i-understand-the-risk", action="store_true",
@@ -56,12 +57,12 @@ def main() -> None:
     executor = None
     if args.mode == "sim":
         from bot.feeds.sim import SimFeed
-        feeds = [SimFeed(cfg, cfg.symbols, cfg.window_minutes)]
+        feeds = [SimFeed(cfg, cfg.symbols, cfg.durations_minutes)]
     else:
         from bot.feeds.binance import BinanceFeed
         from bot.feeds.polymarket import PolymarketFeed
         feeds = [BinanceFeed(cfg.symbols),
-                 PolymarketFeed(cfg.symbols, cfg.window_minutes)]
+                 PolymarketFeed(cfg.symbols, cfg.durations_minutes)]
         if args.mode == "live":
             if not args.i_understand_the_risk:
                 raise SystemExit(

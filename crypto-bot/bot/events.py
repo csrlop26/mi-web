@@ -41,6 +41,7 @@ class PredictionQuote:
     up_bid: float
     up_ask: float
     seconds_remaining: float
+    window_seconds: float  # duración total de la ventana (300 = 5 min, 900 = 15 min)
     ts: float
 
     @property
@@ -70,6 +71,7 @@ class Signal:
     size_usd: float
     reason: str
     passive: bool = False  # True = orden maker (reposa en el libro, sin fee taker)
+    window_seconds: float = 0.0  # duración de la ventana del mercado
 
 
 @dataclass
@@ -91,6 +93,7 @@ class Position:
     side: Side
     shares: float
     cost_usd: float
+    window_seconds: float = 0.0
     entries: list[Fill] = field(default_factory=list)
 
     @property

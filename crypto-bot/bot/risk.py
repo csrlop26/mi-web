@@ -77,14 +77,11 @@ class RiskManager:
             log.debug("Rechazada %s: máximo de posiciones abiertas.", signal.reason)
             return None
 
-        max_usd = equity * self.cfg.max_trade_pct
+        max_usd = min(equity * self.cfg.max_trade_pct, self.cfg.max_trade_usd)
         if signal.size_usd > max_usd:
             if max_usd < 1.0:
                 return None
-            signal = Signal(
-                strategy=signal.strategy, symbol=signal.symbol,
-                window_id=signal.window_id, side=signal.side,
-                action=signal.action, price=signal.price,
-                size_usd=max_usd, reason=signal.reason + " [recortada por riesgo]",
-            )
+            import dataclasses as _dc
+            signal = _dc.replace(signal, size_usd=max_usd,
+                                 reason=signal.reason + " [recortada por riesgo]")
         return signal
