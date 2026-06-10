@@ -1,0 +1,38 @@
+{
+  "bankroll": 1000.0,
+  "symbols": ["BTC"],
+  "window_minutes": 15,
+  "momentum_lag": {
+    "enabled": true,
+    "min_edge": 0.08,
+    "take_profit_edge": 0.02,
+    "min_seconds_remaining": 90,
+    "max_entry_price": 0.85,
+    "momentum_window_seconds": 30
+  },
+  "market_maker": {
+    "enabled": true,
+    "spread": 0.04,
+    "quote_size_usd": 25.0,
+    "max_inventory_usd": 100.0,
+    "requote_threshold": 0.015
+  },
+  "risk": {
+    "max_trade_pct": 0.05,
+    "daily_loss_limit_pct": 0.05,
+    "max_drawdown_pct": 0.15,
+    "max_open_positions": 6
+  },
+  "fees": {
+    "taker_bps": 0,
+    "slippage_bps": 20
+  },
+  "sim": {
+    "speed": 20.0,
+    "session_windows": 8,
+    "annual_volatility": 0.65,
+    "jump_probability_per_min": 0.18,
+    "polymarket_lag_seconds": 5.0,
+    "seed": null
+  }
+}
