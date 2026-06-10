@@ -15,15 +15,22 @@ class MomentumLagCfg:
     min_seconds_remaining: float
     max_entry_price: float
     momentum_window_seconds: float
+    lead_symbol: str
+    cross_beta: float
 
 
 @dataclass(frozen=True)
 class MarketMakerCfg:
     enabled: bool
-    spread: float
+    base_spread: float
+    min_spread: float
+    max_spread: float
+    vol_multiplier: float
     quote_size_usd: float
     max_inventory_usd: float
     requote_threshold: float
+    min_seconds_remaining: float
+    inventory_skew: float
 
 
 @dataclass(frozen=True)
@@ -47,6 +54,8 @@ class SimCfg:
     annual_volatility: float
     jump_probability_per_min: float
     polymarket_lag_seconds: float
+    alt_beta: float
+    alt_lag_seconds: float
     seed: int | None
 
 

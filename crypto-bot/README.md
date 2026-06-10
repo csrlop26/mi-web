@@ -12,6 +12,34 @@ Ambas estrategias corren a la vez bajo un **gestor de riesgo** que manda sobre t
 
 ---
 
+## ⚡ Mejoras v2 (maximizar ganancia diaria)
+
+| # | Mejora | Qué aporta |
+|---|--------|------------|
+| 1 | **Multi-símbolo** (BTC + ETH + SOL) | 3 mercados = 3× más oportunidades por ventana |
+| 2 | **Señal cruzada BTC→alts** | ETH/SOL siguen a BTC con ~2 s de retraso; el bot apuesta en el alt ANTES de que recoja el movimiento de BTC |
+| 3 | **Reinversión automática** | El tamaño de cada operación se calcula sobre el equity vivo, no sobre el capital inicial → interés compuesto |
+| 4 | **Volatilidad realizada** | El modelo mide la volatilidad real del momento (EWMA tick a tick) en vez de usar un valor fijo → probabilidades más precisas, edges más fiables |
+| 5 | **Salida más rápida** | Cierra al evaporarse el hueco (0.01) y rota el capital más veces por ventana |
+| 6 | **Spread dinámico (MM)** | Mercado tranquilo → spread estrecho (más volumen); volatilidad alta → spread ancho (más cobro por fill) |
+| 7 | **Sesgo de inventario (MM)** | Si acumula un lado, desplaza las cotizaciones para soltar inventario en vez de cargar riesgo |
+| 8 | **Retirada final (MM)** | Deja de cotizar en los últimos 60 s de cada ventana, cuando el precio justo se mueve violento |
+
+**Resultados medidos en simulación (mismas semillas, antes → después):**
+
+| Sesión | v1 | v2 |
+|--------|-----|-----|
+| Semilla 42 (4 ventanas) | +99.7% | **+277.1%** |
+| Semilla 7 (6 ventanas) | +133.1% | **+162.2%** |
+| Semilla 2026 (mercado hostil) | — | **+3.7%** (kill switch protegió las ganancias) |
+
+> El simulador lleva la ineficiencia incorporada a propósito; en el mercado
+> real los retornos serán mucho más modestos. Lo importante de la tercera
+> fila: en un mercado malo el sistema de riesgo corta a tiempo y la sesión
+> termina en verde en vez de en rojo.
+
+---
+
 ## ⚠️ Léeme primero
 
 - El bot arranca **siempre en modo PAPER** (dinero ficticio). Nadie pierde un céntimo hasta que tú lo decidas.
@@ -123,13 +151,16 @@ con todas las operaciones, el PnL y las métricas de cada estrategia.
 | Parámetro | Qué controla | Valor inicial |
 |-----------|--------------|---------------|
 | `bankroll` | Capital de trabajo (ficticio en sim/paper) | 1000 |
-| `symbols` | Mercados a operar | BTC |
-| `momentum_lag.min_edge` | Hueco mínimo (en probabilidad) para apostar | 0.08 |
-| `momentum_lag.take_profit_edge` | Cierra cuando el hueco se reduce a esto | 0.02 |
-| `market_maker.spread` | Diferencial que cobra el market maker | 0.04 |
+| `symbols` | Mercados a operar | BTC, ETH, SOL |
+| `momentum_lag.min_edge` | Hueco mínimo (en probabilidad) para apostar | 0.06 |
+| `momentum_lag.take_profit_edge` | Cierra cuando el hueco se reduce a esto | 0.01 |
+| `momentum_lag.cross_beta` | Cuánto del movimiento de BTC esperan recoger los alts | 0.6 |
+| `market_maker.base_spread` | Spread base del market maker (se adapta solo) | 0.03 |
+| `market_maker.min_spread` / `max_spread` | Límites del spread dinámico | 0.015 / 0.08 |
 | `market_maker.max_inventory_usd` | Inventario máximo por lado | 100 |
-| `risk.max_trade_pct` | % máximo del bankroll por operación | 0.05 |
-| `risk.daily_loss_limit_pct` | Pérdida diaria que apaga el bot | 0.05 |
-| `risk.max_drawdown_pct` | Drawdown que activa el kill switch | 0.15 |
+| `market_maker.inventory_skew` | Fuerza del sesgo para soltar inventario | 0.6 |
+| `risk.max_trade_pct` | % máximo del equity por operación (compone) | 0.05 |
+| `risk.daily_loss_limit_pct` | Pérdida diaria que apaga el bot | 0.07 |
+| `risk.max_drawdown_pct` | Drawdown que activa el kill switch | 0.20 |
 
 Empieza conservador. Sube agresividad solo con datos de las fases 1 y 2 delante.

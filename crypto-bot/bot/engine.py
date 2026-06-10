@@ -34,7 +34,10 @@ class Engine:
         self.executor = executor or PaperExecutor(cfg.fees)
         self.reporter = Reporter(self.portfolio, self.risk)
 
-        max_trade_usd = cfg.bankroll * cfg.risk.max_trade_pct
+        # Tamaño sobre el equity vivo: las ganancias componen automáticamente.
+        def max_trade_usd() -> float:
+            return self.portfolio.equity() * cfg.risk.max_trade_pct
+
         self.momentum = MomentumLagStrategy(
             cfg.momentum_lag, cfg.sim.annual_volatility, max_trade_usd)
         self.market_maker = MarketMakerStrategy(
@@ -48,12 +51,17 @@ class Engine:
         pumps = [asyncio.create_task(self._pump(f, queue)) for f in self.feeds]
         report_task = asyncio.create_task(self.reporter.run())
         try:
-            while pumps:
+            while pumps or not queue.empty():
                 pumps = [p for p in pumps if not p.done()]
                 try:
-                    event = await asyncio.wait_for(queue.get(), timeout=1.0)
-                except asyncio.TimeoutError:
-                    continue
+                    event = queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    if not pumps:
+                        break  # feeds terminados y cola drenada
+                    try:
+                        event = await asyncio.wait_for(queue.get(), timeout=1.0)
+                    except asyncio.TimeoutError:
+                        continue
                 self._dispatch(event)
         finally:
             for p in pumps:

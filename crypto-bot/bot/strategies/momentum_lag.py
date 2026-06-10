@@ -1,4 +1,4 @@
-"""Estrategia A — Momentum Lag ("el rezagado").
+"""Estrategia A — Momentum Lag ("el rezagado"), versión 2.
 
 Idea: el precio spot de Binance se mueve ANTES de que el mercado up/down
 de Polymarket lo refleje. La estrategia estima la probabilidad real de que
@@ -7,10 +7,18 @@ y la compara con la probabilidad que cobra Polymarket. Si el hueco (edge)
 supera el umbral, compra el lado infravalorado; cierra cuando el hueco se
 evapora o deja que la ventana resuelva.
 
-Modelo de probabilidad: el retorno restante de la ventana se aproxima como
-normal con media 0 y desviación vol*sqrt(t_restante). La probabilidad de
-cerrar en verde es la probabilidad de que el retorno restante no borre la
-ventaja (o desventaja) acumulada desde la apertura.
+Mejoras v2 (orientadas a maximizar ganancia diaria):
+1. VOLATILIDAD REALIZADA: en vez de una vol fija de config, estima la vol
+   real del momento (EWMA de retornos tick a tick). Con vol bien medida,
+   el modelo de probabilidad acierta más y el edge detectado es más fiable.
+2. SEÑAL CRUZADA BTC→ALTS: ETH y SOL siguen a BTC con ~1-3 s de retraso.
+   Si BTC acaba de moverse y el alt aún no lo ha recogido, el modelo del
+   alt incorpora ese movimiento pendiente (cross_beta) y entra ANTES.
+3. TAMAÑO COMPUESTO: el tamaño máximo por operación se calcula sobre el
+   equity ACTUAL, no sobre el bankroll inicial → las ganancias se
+   reinvierten automáticamente (interés compuesto).
+4. Salida más rápida (take_profit_edge 0.01): rota el capital más veces
+   por ventana en lugar de esperar a que el hueco se cierre del todo.
 """
 from __future__ import annotations
 
@@ -23,6 +31,8 @@ from ..events import Action, PredictionQuote, Side, Signal, SpotTick
 log = logging.getLogger("momentum")
 
 SECONDS_PER_YEAR = 365.25 * 24 * 3600
+EWMA_LAMBDA = 0.999          # memoria del estimador de volatilidad
+MIN_VOL_SAMPLES = 100        # ticks mínimos antes de fiarse de la vol realizada
 
 
 def _norm_cdf(x: float) -> float:
@@ -32,33 +42,72 @@ def _norm_cdf(x: float) -> float:
 class MomentumLagStrategy:
     name = "momentum_lag"
 
-    def __init__(self, cfg, annual_volatility: float, max_trade_usd: float):
+    def __init__(self, cfg, fallback_volatility: float, max_trade_usd_fn):
+        """max_trade_usd_fn() devuelve el tamaño máximo actual por operación
+        (equity vivo × max_trade_pct) → reinversión automática de ganancias."""
         self.cfg = cfg
-        self.vol = annual_volatility
-        self.max_trade_usd = max_trade_usd
+        self.fallback_vol = fallback_volatility
+        self.max_trade_usd_fn = max_trade_usd_fn
         self.last_spot: dict[str, float] = {}
-        self.spot_history: dict[str, deque] = {}  # (ts, price) recientes
-        # posiciones que esta estrategia cree tener: key -> (side, size_usd, entry_edge)
+        self.last_tick_ts: dict[str, float] = {}
+        self.spot_history: dict[str, deque] = {}    # (ts, price) recientes
+        self.var_rate: dict[str, float] = {}        # EWMA de varianza por segundo
+        self.vol_samples: dict[str, int] = {}
         self.holdings: dict[tuple, Side] = {}
 
     # ------------------------------------------------------------------ datos
 
     def on_tick(self, tick: SpotTick) -> None:
+        prev = self.last_spot.get(tick.symbol)
+        prev_ts = self.last_tick_ts.get(tick.symbol)
         self.last_spot[tick.symbol] = tick.price
+        self.last_tick_ts[tick.symbol] = tick.ts
+
         hist = self.spot_history.setdefault(tick.symbol, deque())
         hist.append((tick.ts, tick.price))
         cutoff = tick.ts - self.cfg.momentum_window_seconds
         while hist and hist[0][0] < cutoff:
             hist.popleft()
 
+        # Estimador EWMA de volatilidad realizada (varianza por segundo).
+        if prev and prev_ts is not None:
+            dt = tick.ts - prev_ts
+            if dt > 0:
+                r = math.log(tick.price / prev)
+                inst = (r * r) / dt
+                old = self.var_rate.get(tick.symbol, inst)
+                self.var_rate[tick.symbol] = EWMA_LAMBDA * old + (1 - EWMA_LAMBDA) * inst
+                self.vol_samples[tick.symbol] = self.vol_samples.get(tick.symbol, 0) + 1
+
+    def annual_vol(self, symbol: str) -> float:
+        """Vol realizada anualizada; usa la de config hasta tener muestra."""
+        if self.vol_samples.get(symbol, 0) >= MIN_VOL_SAMPLES:
+            return math.sqrt(self.var_rate[symbol] * SECONDS_PER_YEAR)
+        return self.fallback_vol
+
+    def _recent_return(self, symbol: str) -> float:
+        """Retorno log del símbolo dentro de la ventana de momentum."""
+        hist = self.spot_history.get(symbol)
+        if not hist or len(hist) < 2 or hist[0][1] <= 0:
+            return 0.0
+        return math.log(hist[-1][1] / hist[0][1])
+
     def model_up_probability(self, q: PredictionQuote) -> float | None:
         """Probabilidad real estimada de que la ventana cierre en verde."""
         spot = self.last_spot.get(q.symbol)
         if spot is None or q.open_price <= 0:
             return None
-        lead = math.log(spot / q.open_price)          # ventaja acumulada
+        lead = math.log(spot / q.open_price)  # ventaja acumulada
+
+        # Señal cruzada: movimiento reciente de BTC que el alt aún no recoge.
+        lead_sym = self.cfg.lead_symbol
+        if q.symbol != lead_sym and lead_sym in self.last_spot:
+            catchup = self.cfg.cross_beta * (
+                self._recent_return(lead_sym) - self._recent_return(q.symbol))
+            lead += catchup
+
         t = max(q.seconds_remaining, 1.0) / SECONDS_PER_YEAR
-        sigma = self.vol * math.sqrt(t)               # ruido restante
+        sigma = self.annual_vol(q.symbol) * math.sqrt(t)  # ruido restante
         if sigma <= 0:
             return 1.0 if lead > 0 else 0.0
         return _norm_cdf(lead / sigma)
@@ -104,8 +153,10 @@ class MomentumLagStrategy:
 
     def _entry(self, q: PredictionQuote, side: Side, price: float,
                edge: float, p_model: float) -> Signal:
-        # Tamaño proporcional al hueco (más convicción, más tamaño), con tope.
-        size = self.max_trade_usd * min(1.0, edge / (2 * self.cfg.min_edge))
+        # Tamaño proporcional al hueco (más convicción, más tamaño), con tope
+        # sobre el equity ACTUAL → las ganancias componen.
+        max_usd = self.max_trade_usd_fn()
+        size = max_usd * min(1.0, edge / (2 * self.cfg.min_edge))
         return Signal(
             strategy=self.name, symbol=q.symbol, window_id=q.window_id,
             side=side, action=Action.BUY,
