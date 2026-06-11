@@ -101,6 +101,50 @@ por cruzar — un edge pequeño se evapora entero. La v3 ataca eso de frente:
 
 ---
 
+## 🚨 v5 — Por qué el bot estuvo una noche entera sin operar (y el arreglo)
+
+Investigación con información actualizada de 2026. Tres causas, las tres corregidas:
+
+**1. La fee estaba mal modelada → el umbral de entrada era inalcanzable.**
+En marzo de 2026 Polymarket cambió a una **taker fee dinámica** en los
+mercados cripto de 5/15 min (introducida explícitamente para frenar el
+arbitraje de latencia — nuestra Estrategia A):
+
+```
+fee = notional × 0.072 × p×(1−p)      (p = precio del contrato)
+
+p = 0.50 → 1.80%  (pico)        p = 0.90 → 0.65%
+p = 0.70 → 1.51%                p = 0.95 → 0.34%
+```
+
+El bot asumía 1.8% plano y exigía edge ≥ `min_edge + 2×1.8% = 9.6%` SIEMPRE.
+Ese hueco casi nunca existe → cero entradas en toda la noche.
+Ahora la fee se calcula al precio real de entrada de cada lado y solo se
+cuenta UNA vez si se aguanta a resolución (cobrar el contrato no paga fee).
+Entrar en los extremos (p≈0.9) cuesta casi nada → muchas más oportunidades.
+
+**2. Los slugs de descubrimiento no existían.**
+Los mercados reales viven en eventos con slug **determinista**:
+`btc-updown-5m-{epoch}` / `btc-updown-15m-{epoch}` donde epoch = inicio de
+la ventana alineado a 300/900 s UTC (ej. real: `btc-updown-15m-1768502700`).
+El feed ahora CALCULA el slug de la ventana vigente y la pide directa a
+`/events?slug=` — sin búsqueda, sin depender de listados. Las rutas
+antiguas quedan de respaldo. (XRP también soportado: `xrp-updown-…`.)
+
+**3. La apertura se estimaba con Binance, pero la resolución es Chainlink.**
+Polymarket SÍ publica el strike oficial ("price to beat") vía
+`polymarket.com/api/crypto/price-to-beat?slug={slug}`. El feed lo adjunta a
+cada cotización; la captura desde Binance queda solo como último recurso.
+
+Además: la consulta de resolución ya no bloquea el bucle (antes un sleep de
+5 s por ventana retrasaba el descubrimiento y se perdía el arranque fresco
+de las ventanas de 5 min), y `min_edge` baja de 0.06 a 0.04 porque ahora la
+fee se paga con precisión en vez de con un colchón gigante.
+
+**Validación v5 (sim, 3 semillas):** 3/3 positivas, winrate 67–74%.
+
+---
+
 ## 🔧 Registro de bugs (encontrados en paper trading real)
 
 **Bug #1 — El bot estuvo 1 h en paper sin operar (corregido en v3).**

@@ -43,17 +43,19 @@ class MomentumLagStrategy:
     name = "momentum_lag"
 
     def __init__(self, cfg, fallback_volatility: float, max_trade_usd_fn,
-                 fee_rate: float = 0.0, size_mult_fn=None):
+                 fee_fn=None, size_mult_fn=None):
         """max_trade_usd_fn() devuelve el tamaño máximo actual por operación
         (equity vivo × max_trade_pct) → reinversión automática de ganancias.
-        fee_rate es la comisión taker por trade (1.8% en cripto de Polymarket):
-        el edge exigido para entrar se ajusta para que el trade la pague.
-        size_mult_fn(window_seconds) pondera el tamaño según el régimen de
-        volatilidad (asignador 5/15 min); por defecto 1."""
+        fee_fn(precio) es la taker fee DINÁMICA de Polymarket 2026 como
+        fracción del notional: pico 1.8% en p=0.5, casi 0 en los extremos.
+        El edge exigido para entrar incorpora la fee AL PRECIO DE ENTRADA
+        (cobrar a resolución no paga fee; vender antes sí, y eso lo paga
+        la lógica de salida). size_mult_fn(window_seconds) pondera el tamaño
+        según el régimen de volatilidad (asignador 5/15 min)."""
         self.cfg = cfg
         self.fallback_vol = fallback_volatility
         self.max_trade_usd_fn = max_trade_usd_fn
-        self.fee_rate = fee_rate
+        self.fee_fn = fee_fn or (lambda p: 0.0)
         self.size_mult_fn = size_mult_fn or (lambda ws: 1.0)
         self.last_spot: dict[str, float] = {}
         self.last_tick_ts: dict[str, float] = {}
@@ -158,15 +160,17 @@ class MomentumLagStrategy:
         held = self.holdings.get(key)
 
         if held is not None:
-            # ¿Toca cerrar? El hueco a favor se ha evaporado.
+            # ¿Toca cerrar? Solo si el mercado sobrevalora nuestro lado más
+            # de lo que cuesta la fee de salir (vender antes de resolución
+            # paga taker fee; cobrar el contrato al resolver no).
             edge = (p_model - q.up_ask) if held is Side.UP else ((1 - p_model) - (1 - q.up_bid))
-            if edge <= self.cfg.take_profit_edge:
-                exit_px = q.up_bid if held is Side.UP else (1.0 - q.up_ask)
+            exit_px = q.up_bid if held is Side.UP else (1.0 - q.up_ask)
+            if edge <= self.cfg.take_profit_edge - self.fee_fn(exit_px):
                 signals.append(Signal(
                     strategy=self.name, symbol=q.symbol, window_id=q.window_id,
                     side=held, action=Action.SELL, price=max(exit_px - 0.02, 0.001),
                     size_usd=float("inf"),  # el motor lo traduce a "toda la posición"
-                    reason=f"cierre: edge {edge:+.3f} <= {self.cfg.take_profit_edge}",
+                    reason=f"cierre: edge {edge:+.3f}",
                     window_seconds=q.window_seconds,
                 ))
             return signals
@@ -174,31 +178,35 @@ class MomentumLagStrategy:
         if q.seconds_remaining < self.cfg.min_remaining_frac * q.window_seconds:
             return []  # demasiado cerca de la resolución: el hueco ya no paga
 
-        # ¿Hay hueco suficiente en algún lado? El umbral incluye las comisiones
-        # de entrada y salida: un edge que no paga las fees no es un edge.
-        required = self.cfg.min_edge + 2.0 * self.fee_rate
-        edge_up = p_model - q.up_ask
-        edge_down = (1.0 - p_model) - (1.0 - q.up_bid)
+        # ¿Hay hueco suficiente en algún lado? El umbral incorpora la fee
+        # dinámica AL PRECIO DE ENTRADA de cada lado: entrar barato en los
+        # extremos cuesta casi 0; entrar en 50/50 cuesta el pico (1.8%).
+        ask_up = q.up_ask
+        ask_down = 1.0 - q.up_bid
+        req_up = self.cfg.min_edge + self.fee_fn(ask_up)
+        req_down = self.cfg.min_edge + self.fee_fn(ask_down)
+        edge_up = p_model - ask_up
+        edge_down = (1.0 - p_model) - ask_down
 
-        self._diagnostics(q, p_model, edge_up, edge_down, required)
+        self._diagnostics(q, p_model, edge_up, edge_down, req_up, req_down)
 
-        if edge_up >= required and q.up_ask <= self.cfg.max_entry_price:
-            signals.append(self._entry(q, Side.UP, q.up_ask, edge_up, p_model))
-        elif edge_down >= required and (1.0 - q.up_bid) <= self.cfg.max_entry_price:
-            signals.append(self._entry(q, Side.DOWN, 1.0 - q.up_bid, edge_down, p_model))
+        if edge_up >= req_up and ask_up <= self.cfg.max_entry_price:
+            signals.append(self._entry(q, Side.UP, ask_up, edge_up, p_model))
+        elif edge_down >= req_down and ask_down <= self.cfg.max_entry_price:
+            signals.append(self._entry(q, Side.DOWN, ask_down, edge_down, p_model))
         return signals
 
-    def _diagnostics(self, q: PredictionQuote, p_model: float,
-                     edge_up: float, edge_down: float, required: float) -> None:
+    def _diagnostics(self, q: PredictionQuote, p_model: float, edge_up: float,
+                     edge_down: float, req_up: float, req_down: float) -> None:
         """Latido cada 60 s por símbolo: visibiliza por qué (no) se opera."""
         last = self.last_diag_ts.get(q.symbol, 0.0)
         if q.ts - last < 60.0:
             return
         self.last_diag_ts[q.symbol] = q.ts
-        log.info("%s %s | modelo=%.3f mercado=%.3f | edge UP=%+.3f DOWN=%+.3f "
-                 "(umbral %.3f) | quedan %.0fs",
+        log.info("%s %s | modelo=%.3f mercado=%.3f | edge UP=%+.3f (req %.3f) "
+                 "DOWN=%+.3f (req %.3f) | quedan %.0fs",
                  q.symbol, q.window_id[-8:], p_model, q.up_mid,
-                 edge_up, edge_down, required, q.seconds_remaining)
+                 edge_up, req_up, edge_down, req_down, q.seconds_remaining)
 
     def _entry(self, q: PredictionQuote, side: Side, price: float,
                edge: float, p_model: float) -> Signal:

@@ -1,8 +1,27 @@
-# 📌 NOTA — Ultra-resumen de la sesión (2026-06-10)
+# 📌 NOTA — Ultra-resumen de la sesión (2026-06-11)
 
 Bot: **PolyEdge** (`crypto-bot/`). Rama: `claude/crypto-bot-models-ynsjxm`.
 
-## Qué se hizo hoy (v4 — Opción C)
+## v5 — Arreglo del "noche entera sin trades" (2026-06-11)
+
+Tres causas raíz, las tres corregidas (detalle en README → sección v5):
+
+1. **Fee dinámica 2026 mal modelada**: Polymarket cobra
+   `0.072 × p(1-p)` (pico 1.8% en p=0.5, ~0 en extremos), no 1.8% plano.
+   El bot exigía edge ≥9.6% siempre → nunca entraba. Ahora fee al precio
+   real de entrada, una sola vez si se aguanta a resolución. `min_edge`
+   0.06→0.04. (`bot/fees.py` nuevo.)
+2. **Slugs de descubrimiento inexistentes**: los reales son deterministas
+   `btc-updown-5m-{epoch alineado a 300s}`. El feed los calcula y pide
+   directo a la Gamma API, sin buscar.
+3. **Apertura oficial vía price-to-beat** (el strike de Chainlink que usa
+   el oráculo), Binance solo de respaldo. Y la consulta de resolución ya
+   no bloquea el bucle de cotizaciones.
+
+Validación sim 3 semillas: 3/3 positivas, winrate 67-74%.
+**Siguiente paso: volver a lanzar `start-bot.bat` una noche en paper.**
+
+## Qué se hizo antes (v4 — Opción C)
 
 1. **Doble duración simultánea**: el bot opera ventanas de **5 y 15 min a la
    vez** (BTC+ETH+SOL = 6 mercados en paralelo).

@@ -40,9 +40,11 @@ class Engine:
             return min(self.portfolio.equity() * cfg.risk.max_trade_pct,
                        cfg.risk.max_trade_usd)
 
+        from .fees import taker_fee_rate
+        fee_rate = cfg.fees.dynamic_fee_rate
         self.momentum = MomentumLagStrategy(
             cfg.momentum_lag, cfg.sim.annual_volatility, max_trade_usd,
-            fee_rate=cfg.fees.taker_bps / 10_000.0)
+            fee_fn=lambda p: taker_fee_rate(p, fee_rate))
         self.allocator = RegimeAllocator(
             cfg.allocator,
             vol_fn=lambda: self.momentum.annual_vol(cfg.allocator.lead_symbol),

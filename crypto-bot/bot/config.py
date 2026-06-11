@@ -53,7 +53,7 @@ class RiskCfg:
 
 @dataclass(frozen=True)
 class FeesCfg:
-    taker_bps: float
+    dynamic_fee_rate: float  # taker 2026: fee = notional × rate × p(1-p)
     maker_bps: float
     slippage_bps: float
 

@@ -18,7 +18,7 @@
   },
   "momentum_lag": {
     "enabled": true,
-    "min_edge": 0.06,
+    "min_edge": 0.04,
     "take_profit_edge": -0.03,
     "max_entry_price": 0.88,
     "momentum_window_seconds": 30,
@@ -46,7 +46,7 @@
     "max_trade_usd": 250.0
   },
   "fees": {
-    "taker_bps": 180,
+    "dynamic_fee_rate": 0.072,
     "maker_bps": 0,
     "slippage_bps": 20
   },

@@ -39,8 +39,11 @@ RE_FILL = re.compile(
     r"FILL\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+@\s+([0-9.]+)\s+\$([0-9.]+)"
     r"\s+\(([^)]+)\)"
 )
-RE_REGIME = re.compile(r"regime=(\S+)\s+vol_ann=([0-9.]+)\s+w_short=([0-9.]+)")
-RE_EDGE = re.compile(r"\[DIAG\].*?(\w+)/(\d+)m.*?model=([0-9.]+).*?mkt=([0-9.]+).*?edge=([+-][0-9.]+)")
+RE_REGIME = re.compile(
+    r"r.gimen: vol=([0-9.]+).*?peso 5min=(\d+)%.*?15min=(\d+)%")
+RE_EDGE = re.compile(
+    r"(\w+) (\S+) \| modelo=([0-9.]+) mercado=([0-9.]+) \| "
+    r"edge UP=([+-][0-9.]+) \(req ([0-9.]+)\) DOWN=([+-][0-9.]+)")
 RE_KILL  = re.compile(r"KILL|kill.switch|HALT")
 RE_REINICIO = re.compile(r"reinicio (\d+)/50")
 RE_TS = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})")
@@ -147,20 +150,22 @@ class State:
         # regime/vol
         m = RE_REGIME.search(line)
         if m:
-            self.regime  = m.group(1)
-            self.vol_ann = float(m.group(2))
-            self.w_short = float(m.group(3))
+            self.vol_ann = float(m.group(1))
+            self.w_short = int(m.group(2)) / 100.0
+            self.regime = ("alta-vol" if self.w_short > 0.6
+                           else "baja-vol" if self.w_short < 0.4 else "normal")
             return
 
         # diagnóstico edge
         m = RE_EDGE.search(line)
         if m:
-            sym, dur, model, mkt, edge = m.groups()
-            ev = float(edge)
-            col = GN if ev > 0 else RD
-            entry = (f"{DIM}{ts[-8:]}{R} {WH}{sym}/{dur}m{R}  "
-                     f"model={CY}{model}{R} mkt={YL}{mkt}{R} "
-                     f"edge={col}{edge}{R}")
+            sym, wid, model, mkt, edge_up, req, edge_down = m.groups()
+            best = max(float(edge_up), float(edge_down))
+            col = GN if best >= float(req) else (YL if best > 0 else RD)
+            entry = (f"{DIM}{ts[-8:]}{R} {WH}{sym:<4}{R} "
+                     f"modelo={CY}{model}{R} mercado={YL}{mkt}{R} "
+                     f"UP={col}{edge_up}{R} DOWN={col}{edge_down}{R} "
+                     f"{DIM}req {req}{R}")
             self.last_edges.append(entry)
             if len(self.last_edges) > 4:
                 self.last_edges.pop(0)
