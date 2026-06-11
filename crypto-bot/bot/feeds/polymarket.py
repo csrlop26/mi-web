@@ -36,7 +36,7 @@ PTB_URLS = (
 )
 DISCOVERY_BACKOFF = 10.0
 RESOLVE_RETRY     = 5.0
-RESOLVE_MAX_TRIES = 12
+RESOLVE_MAX_TRIES = 48   # 4 min: Chainlink tarda 2-4 min en publicar resultado
 PAGE_CACHE_TTL    = 30.0   # html de polymarket.com compartido entre símbolos
 MAX_LEAD_SECS     = 1200.0 # aceptar ventanas que empiezan en < 20 min
 
@@ -478,22 +478,40 @@ class PolymarketFeed:
         )
 
     async def _resolve(self, http, market: dict) -> WindowResolution | None:
+        cid = market.get("condition_id")
+        if not cid:
+            return None
+        # Intento 1: query por conditionId
         data = await self._get(http, f"{GAMMA_API}/markets",
-                               {"condition_ids": market["condition_id"]})
+                               {"condition_ids": cid})
+        # Intento 2: query directa por slug si el primero vino vacío
+        if not data and market.get("slug"):
+            data = await self._get(http, f"{GAMMA_API}/markets",
+                                   {"slug": market["slug"], "limit": "3"})
         for m in data or []:
             prices = m.get("outcomePrices")
-            if prices:
-                p = _json.loads(prices) if isinstance(prices, str) else prices
+            if not prices:
+                continue
+            p = _json.loads(prices) if isinstance(prices, str) else prices
+            try:
                 up = float(p[0])
-                if up not in (0.0, 1.0) and not m.get("closed"):
-                    continue
-                return WindowResolution(
-                    symbol=market["symbol"],
-                    window_id=market["window_id"],
-                    up_won=up > 0.5,
-                    close_price=0.0,
-                    ts=time.time(),
-                )
+            except (TypeError, ValueError, IndexError):
+                continue
+            settled = (up in (0.0, 1.0)
+                       or m.get("closed") is True
+                       or m.get("acceptingOrders") is False and up != 0.5)
+            if not settled:
+                continue
+            log.info("POLY-RESUELTO %s/%s: UP=%.0f (%s)",
+                     market["symbol"], market.get("question","?")[:30], up,
+                     "ganó UP" if up > 0.5 else "ganó DOWN")
+            return WindowResolution(
+                symbol=market["symbol"],
+                window_id=market["window_id"],
+                up_won=up > 0.5,
+                close_price=0.0,
+                ts=time.time(),
+            )
         return None
 
 

@@ -36,7 +36,8 @@
     "max_inventory_usd": 15.0,
     "requote_threshold": 0.015,
     "inventory_skew": 0.6,
-    "min_remaining_frac": 0.07
+    "min_remaining_frac": 0.07,
+    "max_divergence": 0.25
   },
   "risk": {
     "max_trade_pct": 0.1,

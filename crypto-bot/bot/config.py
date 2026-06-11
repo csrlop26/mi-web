@@ -40,6 +40,7 @@ class MarketMakerCfg:
     requote_threshold: float
     inventory_skew: float
     min_remaining_frac: float
+    max_divergence: float = 0.25  # no cotizar si |modelo-mercado| > este umbral
 
 
 @dataclass(frozen=True)

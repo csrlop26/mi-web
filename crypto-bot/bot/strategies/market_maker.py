@@ -69,8 +69,13 @@ class MarketMakerStrategy:
 
         fair = self.fair_price(q)
         if fair is None:
-            # Sin modelo no se cotiza: centrarse en el propio mercado garantiza
-            # no cruzar nunca (y de hacerlo, sería contra flujo informado).
+            return []
+
+        # Si el modelo diverge demasiado del mercado el MM no gana spread:
+        # está apostando direccional contra el consenso. Para cuando diverge
+        # más de 25 puntos (ej. modelo=0.55 vs mercado=0.83).
+        market_mid = (q.up_bid + q.up_ask) / 2.0
+        if abs(fair - market_mid) > self.cfg.max_divergence:
             return []
 
         key = (q.symbol, q.window_id)
@@ -98,7 +103,7 @@ class MarketMakerStrategy:
         signals: list[Signal] = []
 
         # El mercado nos cruza el bid: alguien vende UP por debajo de nuestro bid.
-        if q.up_ask <= my_bid and inv_up < self.cfg.max_inventory_usd:
+        if q.up_ask <= my_bid and inv_up + size <= self.cfg.max_inventory_usd:
             signals.append(Signal(
                 strategy=self.name, symbol=q.symbol, window_id=q.window_id,
                 side=Side.UP, action=Action.BUY, price=my_bid,
@@ -107,7 +112,7 @@ class MarketMakerStrategy:
             ))
 
         # El mercado cruza el ask: UP caro → compramos DOWN (equivale a vender UP).
-        if q.up_bid >= my_ask and inv_down < self.cfg.max_inventory_usd:
+        if q.up_bid >= my_ask and inv_down + size <= self.cfg.max_inventory_usd:
             signals.append(Signal(
                 strategy=self.name, symbol=q.symbol, window_id=q.window_id,
                 side=Side.DOWN, action=Action.BUY, price=1.0 - my_ask,
