@@ -168,12 +168,11 @@ class PolymarketFeed:
 
     async def _via_market_listing(self, http, symbol: str,
                                    dur: int) -> list[dict]:
+        # Sin tag=crypto — ese parámetro filtra demasiado en la API 2026
         data = await self._get(http, f"{GAMMA_API}/markets",
                                {"closed": "false", "order": "endDate",
-                                "ascending": "true", "limit": "200",
-                                "tag": "crypto"})
+                                "ascending": "true", "limit": "200"})
         name = SEARCH_NAME[symbol]
-        dur_kw = DUR_KEYWORDS.get(dur, [])
         candidates = []
         for m in data or []:
             q = (m.get("question") or "").lower()
@@ -181,15 +180,11 @@ class PolymarketFeed:
                 continue
             if "up or down" not in q and "updown" not in q:
                 continue
-            # Filtro de duración opcional (puede no aparecer en el título)
-            if dur_kw and not any(kw in q for kw in dur_kw):
-                # No hay kw de duración: incluir si la ventana temporal encaja
-                pass
             candidates.append(m)
         out = self._parse_markets(symbol, dur, candidates)
-        if out:
-            log.debug("POLY-LIST %s/%dm: %d candidatos → %d válidos",
-                      symbol, dur, len(candidates), len(out))
+        if candidates:
+            log.info("POLY-LIST %s/%dm: %d candidatos → %d válidos",
+                     symbol, dur, len(candidates), len(out))
         return out
 
     async def _via_search(self, http, symbol: str, dur: int) -> list[dict]:
@@ -218,7 +213,10 @@ class PolymarketFeed:
             end_ts = _parse_iso(end)
             if not end_ts or end_ts <= now:
                 continue
-            if end_ts - now > dur * 60 * 1.6:
+            # Ventana actual = expira en ≤ dur*60 + margen generoso.
+            # Factor 3.0 cubre casos: mercado abierto antes de hora,
+            # retrasos de descubrimiento, diferencias de zona horaria.
+            if end_ts - now > dur * 60 * 3.0:
                 continue
             out.append({
                 "symbol":         symbol,
