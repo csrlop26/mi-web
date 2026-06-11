@@ -2,6 +2,37 @@
 
 Bot: **PolyEdge** (`crypto-bot/`). Rama: `claude/crypto-bot-models-ynsjxm`.
 
+## v6 — Auditoría completa + resolución infalible (2026-06-11)
+
+Investigación verificada contra docs oficiales de Polymarket 2026:
+
+1. **Fee corregida (POR CONTRATO)**: la fórmula oficial es
+   `C × 0.072 × p(1-p)` por contrato, NO sobre el notional. Sobre lo
+   gastado equivale a `7.2% × (1-p)`: longshots carísimos (6.5% en
+   p=0.10), favoritos casi gratis (0.72% en p=0.90). El executor cobraba
+   de menos en compras baratas. (`bot/fees.py`, `bot/execution.py`)
+2. **Resolución con triple red**: API oficial (3 min) → cierre real de
+   Binance vs strike (kline 1m, a partir de 1 min) → último mid del libro.
+   Adiós POLY-NORES y posiciones zombi. Regla oficial: empate gana UP.
+3. **Prefetch de la siguiente ventana**: su slug es determinista
+   (epoch = end_ts actual) → se descubre 50 s antes de la rotación.
+   Sin hueco al abrir, que son los segundos con más edge.
+4. **Salida del momentum corregida**: el edge de salida se mide contra el
+   bid (lo que pagan por salir), no el ask — antes retenía perdedoras.
+5. **Cash check con fee** (+2%), fuga de memoria en engine eliminada,
+   `res=N` en status (el dashboard muestra Resueltas), `.gitignore`.
+6. **Contexto real 2026** (investigado): el arbitraje de latencia puro
+   está muerto (Polymarket quitó el delay de 500 ms en feb-2026 y puso
+   la fee dinámica para matarlo). Lo que funciona: market making con
+   rebates (20% diario) + compra de favoritos al final de ventana
+   (fee ~0). El bot ya hace ambas. Liquidez típica: $5-50k por ventana.
+   Rate limits API: holgadísimos para nuestro ritmo (4000 req/10s).
+
+Mejora futura documentada: websocket RTDS de Polymarket
+(`wss://ws-subscriptions-clob.polymarket.com/ws/market` + topic
+`crypto_prices_chainlink`) — daría el feed de Chainlink (el que resuelve)
+en tiempo real en vez de Binance, y libro sin polling.
+
 ## v5 — Arreglo del "noche entera sin trades" (2026-06-11)
 
 Tres causas raíz, las tres corregidas (detalle en README → sección v5):

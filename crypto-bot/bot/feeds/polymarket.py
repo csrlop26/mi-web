@@ -36,9 +36,12 @@ PTB_URLS = (
 )
 DISCOVERY_BACKOFF = 10.0
 RESOLVE_RETRY     = 5.0
-RESOLVE_MAX_TRIES = 48   # 4 min: Chainlink tarda 2-4 min en publicar resultado
+RESOLVE_MAX_TRIES = 36   # 3 min de API oficial; después decide el fallback
+RESOLVE_FALLBACK_AFTER = 12  # tras 1 min sin respuesta oficial, intentar Binance
 PAGE_CACHE_TTL    = 30.0   # html de polymarket.com compartido entre símbolos
 MAX_LEAD_SECS     = 1200.0 # aceptar ventanas que empiezan en < 20 min
+PREFETCH_SECS     = 50.0   # buscar la siguiente ventana antes de que acabe la actual
+BINANCE_KLINES    = "https://api.binance.com/api/v3/klines"
 
 # UA de navegador real: la API Gamma y polymarket.com pasan por Cloudflare
 # y un UA de bot puede devolver 403 intermitente.
@@ -84,7 +87,9 @@ class PolymarketFeed:
         async with aiohttp.ClientSession(
                 headers={"User-Agent": BROWSER_UA}) as http:
             active: dict[tuple, dict | None] = {}
+            upcoming: dict[tuple, dict] = {}       # siguiente ventana prefetcheada
             next_discovery: dict[tuple, float] = {}
+            prefetch_after: dict[tuple, float] = {}
             pending: list[dict] = []
             while True:
                 now = time.time()
@@ -95,6 +100,10 @@ class PolymarketFeed:
                     if now < m["try_after"]:
                         still.append(m); continue
                     res = await self._resolve(http, m)
+                    # Si la API oficial tarda demasiado, resolvemos nosotros
+                    # con el cierre real de Binance (conocemos el strike).
+                    if res is None and m["tries"] >= RESOLVE_FALLBACK_AFTER:
+                        res = await self._resolve_fallback(http, m, force=False)
                     if res is not None:
                         yield res
                     elif m["tries"] < RESOLVE_MAX_TRIES:
@@ -102,9 +111,13 @@ class PolymarketFeed:
                         m["try_after"] = now + RESOLVE_RETRY
                         still.append(m)
                     else:
-                        log.warning("POLY-NORES %s/%s: sin resultado tras %.0f s",
-                                    m["symbol"], m.get("question","?")[:30],
-                                    RESOLVE_MAX_TRIES * RESOLVE_RETRY)
+                        res = await self._resolve_fallback(http, m, force=True)
+                        if res is not None:
+                            yield res
+                        else:
+                            log.warning("POLY-NORES %s/%s: sin resultado tras %.0f s",
+                                        m["symbol"], m.get("question","?")[:30],
+                                        RESOLVE_MAX_TRIES * RESOLVE_RETRY)
                 pending = still
 
                 # descubrimiento + cotizaciones
@@ -120,7 +133,10 @@ class PolymarketFeed:
                             market["tries"]    = 0
                             market["try_after"] = now + 4.0
                             pending.append(market)
-                            active[key] = market = None
+                            # Sin hueco entre ventanas: la siguiente ya está
+                            # prefetcheada → cotizamos desde el segundo 1.
+                            market = upcoming.pop(key, None)
+                            active[key] = market
                         if market is None:
                             if (discovered_this_cycle
                                     or now < next_discovery.get(key, 0.0)):
@@ -131,6 +147,18 @@ class PolymarketFeed:
                             if market is None:
                                 next_discovery[key] = now + DISCOVERY_BACKOFF
                                 continue
+                        # Prefetch de la siguiente ventana en los últimos
+                        # segundos de la actual (su epoch = end_ts actual).
+                        if (key not in upcoming
+                                and not discovered_this_cycle
+                                and market["end_ts"] - now < PREFETCH_SECS
+                                and now >= prefetch_after.get(key, 0.0)):
+                            prefetch_after[key] = now + 10.0
+                            discovered_this_cycle = True
+                            nxt = await self._prefetch_next(http, symbol, dur,
+                                                            market["end_ts"])
+                            if nxt is not None:
+                                upcoming[key] = nxt
                         quote = await self._quote(http, market, now)
                         if quote is not None:
                             yield quote
@@ -162,6 +190,21 @@ class PolymarketFeed:
             log.info("POLY-OK %s/%dm: '%s' (cierra en %.0fs | token %s…)",
                      symbol, dur, m["question"][:50], m["end_ts"] - now,
                      m["up_token"][:12])
+        return m
+
+    async def _prefetch_next(self, http, symbol: str, dur: int,
+                             end_ts: float) -> dict | None:
+        """La ventana siguiente empieza exactamente cuando acaba la actual:
+        su slug es determinista. Tenerla lista elimina el hueco de
+        descubrimiento al rotar — los primeros segundos son los que más
+        edge tienen para el lag."""
+        slug = f"{SLUG_PREFIX[symbol]}-updown-{dur}m-{int(end_ts)}"
+        markets = await self._markets_for_slug(http, symbol, dur, slug)
+        if not markets:
+            return None
+        m = markets[0]
+        log.info("POLY-PREFETCH %s/%dm: siguiente ventana lista (%s)",
+                 symbol, dur, slug)
         return m
 
     async def _via_deterministic_slug(self, http, symbol: str,
@@ -458,6 +501,10 @@ class PolymarketFeed:
         best_ask = min(float(a["price"]) for a in asks)
         if best_bid <= 0 or best_ask >= 1 or best_bid >= best_ask:
             return None
+        # Último mid conocido: lo usa el fallback de resolución si la API
+        # oficial no publica resultado (cerca del cierre el mid ya delata
+        # al ganador: 0.95+ o 0.05-).
+        market["last_mid"] = (best_bid + best_ask) / 2.0
         # Log cada 30 s para ver que llegan precios
         if now - market.get("_last_book_log", 0) >= 30.0:
             market["_last_book_log"] = now
@@ -544,6 +591,65 @@ class PolymarketFeed:
                 close_price=0.0,
                 ts=time.time(),
             )
+        return None
+
+    async def _resolve_fallback(self, http, market: dict,
+                                force: bool) -> WindowResolution | None:
+        """Resolución local cuando la API oficial no responde a tiempo.
+
+        1. Cierre real de Binance al final de la ventana vs strike
+           (price-to-beat). Binance ≈ Chainlink salvo ventanas borderline,
+           que solo aceptamos con force=True.
+        2. Último mid del libro: cerca del cierre el mercado ya cotiza al
+           ganador en 0.95+ / 0.05−.
+        """
+        strike = market.get("open_price", 0.0)
+        if strike > 0:
+            close = await self._binance_close(http, market["symbol"],
+                                              market["end_ts"])
+            if close is not None:
+                move = (close - strike) / strike
+                # Borderline (<1 punto básico): Chainlink podría discrepar.
+                if abs(move) > 1e-4 or force:
+                    # Regla oficial: cierre >= price-to-beat gana UP (empate → UP)
+                    up_won = close >= strike
+                    log.info("POLY-FALLBACK %s/%s: Binance close=%.2f vs "
+                             "strike=%.2f → %s%s",
+                             market["symbol"], market.get("question", "?")[:30],
+                             close, strike, "UP" if up_won else "DOWN",
+                             " (borderline)" if abs(move) <= 1e-4 else "")
+                    return WindowResolution(
+                        symbol=market["symbol"],
+                        window_id=market["window_id"],
+                        up_won=up_won, close_price=close, ts=time.time())
+        mid = market.get("last_mid", 0.0)
+        if mid >= 0.9 or (0.0 < mid <= 0.1) or (force and mid > 0.0):
+            up_won = mid > 0.5
+            log.info("POLY-FALLBACK %s/%s: último mid=%.3f → %s",
+                     market["symbol"], market.get("question", "?")[:30],
+                     mid, "UP" if up_won else "DOWN")
+            return WindowResolution(
+                symbol=market["symbol"], window_id=market["window_id"],
+                up_won=up_won, close_price=0.0, ts=time.time())
+        return None
+
+    async def _binance_close(self, http, symbol: str,
+                             end_ts: float) -> float | None:
+        """Cierre de la vela de 1 min de Binance que termina en end_ts.
+        Las ventanas acaban alineadas al minuto, así que ese cierre ES el
+        precio del activo en el instante de resolución."""
+        params = {"symbol": f"{symbol}USDT", "interval": "1m",
+                  "endTime": str(int(end_ts * 1000)), "limit": "1"}
+        try:
+            async with http.get(BINANCE_KLINES, params=params,
+                                timeout=10) as r:
+                if r.status != 200:
+                    return None
+                k = await r.json(content_type=None)
+                if k and len(k[0]) > 4:
+                    return float(k[0][4])
+        except Exception as exc:
+            log.debug("POLY-FALLBACK binance err: %s", exc)
         return None
 
 

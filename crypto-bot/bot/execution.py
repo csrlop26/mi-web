@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 
 from .events import Action, Fill, PredictionQuote, Side, Signal
-from .fees import DEFAULT_FEE_RATE, taker_fee_rate
+from .fees import DEFAULT_FEE_RATE, taker_fee_per_share
 
 log = logging.getLogger("exec")
 
@@ -43,10 +43,10 @@ class PaperExecutor:
             return None
 
         shares = signal.size_usd / px
-        # Fee dinámica de Polymarket 2026: depende del precio del contrato
-        # (pico 1.8% en 0.50, casi nada en los extremos). Maker: 0.
-        fee = signal.size_usd * (self.maker_fee if signal.passive
-                                 else taker_fee_rate(px, self.fee_rate))
+        # Fee dinámica de Polymarket 2026: POR CONTRATO (C·rate·p(1-p)),
+        # pico 1.8¢/contrato en p=0.50, casi nada en los extremos. Maker: 0.
+        fee = (signal.size_usd * self.maker_fee if signal.passive
+               else shares * taker_fee_per_share(px, self.fee_rate))
         return Fill(signal=signal, fill_price=px, shares=shares, fee_usd=fee, ts=ts)
 
 

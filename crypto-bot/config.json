@@ -20,7 +20,7 @@
     "enabled": true,
     "min_edge": 0.04,
     "take_profit_edge": -0.03,
-    "max_entry_price": 0.88,
+    "max_entry_price": 0.93,
     "momentum_window_seconds": 30,
     "lead_symbol": "BTC",
     "cross_beta": 0.6,

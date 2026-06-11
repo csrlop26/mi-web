@@ -35,9 +35,10 @@ class Reporter:
         if self.risk.daily_halt:
             flags.append("HALT-DIARIO")
         log.info(
-            "equity=%.2f cash=%.2f pnl=%+.2f trades=%d win/loss=%d/%d abiertas=%d %s",
+            "equity=%.2f cash=%.2f pnl=%+.2f trades=%d win/loss=%d/%d "
+            "abiertas=%d res=%d %s",
             eq, p.cash, p.realized_pnl, p.trades, p.wins, p.losses,
-            p.open_position_count(), " ".join(flags),
+            p.open_position_count(), self.resolutions, " ".join(flags),
         )
 
     def on_fill(self, fill) -> None:

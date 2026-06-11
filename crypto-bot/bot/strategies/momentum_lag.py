@@ -46,8 +46,8 @@ class MomentumLagStrategy:
                  fee_fn=None, size_mult_fn=None):
         """max_trade_usd_fn() devuelve el tamaño máximo actual por operación
         (equity vivo × max_trade_pct) → reinversión automática de ganancias.
-        fee_fn(precio) es la taker fee DINÁMICA de Polymarket 2026 como
-        fracción del notional: pico 1.8% en p=0.5, casi 0 en los extremos.
+        fee_fn(precio) es la fee taker POR CONTRATO de Polymarket 2026
+        (rate·p(1-p), pico 1.8¢ en p=0.5): mismas unidades que el edge.
         El edge exigido para entrar incorpora la fee AL PRECIO DE ENTRADA
         (cobrar a resolución no paga fee; vender antes sí, y eso lo paga
         la lógica de salida). size_mult_fn(window_seconds) pondera el tamaño
@@ -160,11 +160,12 @@ class MomentumLagStrategy:
         held = self.holdings.get(key)
 
         if held is not None:
-            # ¿Toca cerrar? Solo si el mercado sobrevalora nuestro lado más
-            # de lo que cuesta la fee de salir (vender antes de resolución
-            # paga taker fee; cobrar el contrato al resolver no).
-            edge = (p_model - q.up_ask) if held is Side.UP else ((1 - p_model) - (1 - q.up_bid))
+            # ¿Toca cerrar? Comparamos el valor del modelo con lo que nos
+            # PAGARÍAN por salir (el bid de nuestro lado), no con el ask:
+            # usar el ask infla el edge y retiene posiciones perdedoras.
             exit_px = q.up_bid if held is Side.UP else (1.0 - q.up_ask)
+            edge = (p_model - exit_px) if held is Side.UP \
+                else ((1.0 - p_model) - exit_px)
             if edge <= self.cfg.take_profit_edge - self.fee_fn(exit_px):
                 signals.append(Signal(
                     strategy=self.name, symbol=q.symbol, window_id=q.window_id,

@@ -34,7 +34,7 @@ WIDTH = 72
 RE_STATUS  = re.compile(
     r"equity=([0-9.]+)\s+cash=([0-9.]+)\s+pnl=([+-][0-9.]+)\s+"
     r"trades=(\d+)\s+win/loss=(\d+)/(\d+)\s+abiertas=(\d+)"
-    r"(?:\s+(.*))?$")
+    r"(?:\s+res=(\d+))?(?:\s+(.*))?$")
 RE_FILL    = re.compile(
     r"FILL\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+@\s+([0-9.]+)\s+\$([0-9.]+)"
     r"\s+\(([^)]+)\)")
@@ -81,6 +81,7 @@ class State:
         self.wins       = 0
         self.losses     = 0
         self.abiertas   = 0
+        self.resueltas  = 0
         self.flags      = ""
         self.fills: list[str] = []
         self.last_status_ts   = "—"
@@ -133,7 +134,9 @@ class State:
             self.wins     = int(m.group(5))
             self.losses   = int(m.group(6))
             self.abiertas = int(m.group(7))
-            self.flags    = (m.group(8) or "").strip()
+            if m.group(8):
+                self.resueltas = int(m.group(8))
+            self.flags    = (m.group(9) or "").strip()
             self.last_status_ts = ts
             if "KILL" in self.flags:
                 self.killed = True
@@ -326,7 +329,8 @@ def render(s: State, elapsed: float) -> str:
         f"  Trades {WH}{B}{s.trades:>4}{R}   "
         f"Ganad {GN}{s.wins}{R}  Perd {RD}{s.losses}{R}   "
         f"Winrate {wr_col}{B}{wr:.1f}%{R}   "
-        f"Abiertas {WH}{s.abiertas}{R}",
+        f"Abiertas {WH}{s.abiertas}{R}   "
+        f"Resueltas {GN}{s.resueltas}{R}",
         f"  Último status {DIM}{s.last_status_ts}{R}",
         "",
     ]

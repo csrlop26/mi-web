@@ -40,11 +40,13 @@ class Engine:
             return min(self.portfolio.equity() * cfg.risk.max_trade_pct,
                        cfg.risk.max_trade_usd)
 
-        from .fees import taker_fee_rate
+        from .fees import taker_fee_per_share
         fee_rate = cfg.fees.dynamic_fee_rate
+        # fee_fn devuelve la fee POR CONTRATO: las mismas unidades que el
+        # edge (diferencia de probabilidades), comparables directamente.
         self.momentum = MomentumLagStrategy(
             cfg.momentum_lag, cfg.sim.annual_volatility, max_trade_usd,
-            fee_fn=lambda p: taker_fee_rate(p, fee_rate))
+            fee_fn=lambda p: taker_fee_per_share(p, fee_rate))
         self.allocator = RegimeAllocator(
             cfg.allocator,
             vol_fn=lambda: self.momentum.annual_vol(cfg.allocator.lead_symbol),
@@ -53,7 +55,6 @@ class Engine:
         self.market_maker = MarketMakerStrategy(
             cfg.market_maker, self.momentum.model_up_probability,
             size_mult_fn=self.allocator.size_multiplier)
-        self.last_quote: dict[tuple, PredictionQuote] = {}
 
     # ------------------------------------------------------------------ bucle
 
@@ -92,7 +93,6 @@ class Engine:
             self.momentum.on_tick(event)
         elif isinstance(event, PredictionQuote):
             self.portfolio.on_quote(event)
-            self.last_quote[(event.symbol, event.window_id)] = event
             signals = (self.momentum.on_quote(event)
                        + self.market_maker.on_quote(event))
             for sig in signals:
@@ -122,7 +122,10 @@ class Engine:
         )
         if approved is None:
             return
-        if approved.action is Action.BUY and approved.size_usd > self.portfolio.cash:
+        # Margen del 2% para la comisión taker (pico 1.8%): sin él la compra
+        # podría dejar el cash en negativo.
+        if (approved.action is Action.BUY
+                and approved.size_usd * 1.02 > self.portfolio.cash):
             return  # sin efectivo suficiente
 
         fill = self.executor.execute(approved, quote, quote.ts)
