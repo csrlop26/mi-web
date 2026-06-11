@@ -69,8 +69,9 @@ class PolymarketFeed:
         self.durations = sorted({int(d) for d in durations_minutes})
         if not self.symbols:
             raise SystemExit(f"Polymarket: ningún símbolo soportado en {symbols}")
-        self._page_cache: dict[int, tuple[float, str]] = {}
+        self._page_cache: dict[int, tuple[float, str | None]] = {}
         self._last_403_log = 0.0
+        self._last_page_warn = 0.0
 
     async def events(self):
         try:
@@ -187,7 +188,8 @@ class PolymarketFeed:
         pattern = rf"{SLUG_PREFIX[symbol]}-updown-{dur}m-(\d+)"
         epochs = sorted({int(e) for e in re.findall(pattern, html)})
         if not epochs:
-            log.debug("POLY-PAGE %s/%dm: sin slugs en el HTML", symbol, dur)
+            self._page_warn("POLY-PAGE %s/%dm: HTML recibido pero sin slugs "
+                            "dentro (¿challenge de Cloudflare?)", symbol, dur)
             return []
         now = time.time()
         period = dur * 60
@@ -209,17 +211,27 @@ class PolymarketFeed:
         if cached and now - cached[0] < PAGE_CACHE_TTL:
             return cached[1]
         url = f"https://polymarket.com/crypto/{dur}M"
+        html: str | None = None
         try:
             async with http.get(url, timeout=15, headers=PAGE_HEADERS) as r:
-                if r.status != 200:
-                    log.debug("POLY-PAGE %s → HTTP %d", url, r.status)
-                    return None
-                html = await r.text()
+                if r.status == 200:
+                    html = await r.text()
+                else:
+                    self._page_warn("POLY-PAGE %s → HTTP %d (scraping web "
+                                    "no disponible)", url, r.status)
         except Exception as exc:
-            log.debug("POLY-PAGE err %s: %s", url, exc)
-            return None
+            self._page_warn("POLY-PAGE err %s: %s", url, exc)
+        # cachear también los fallos: evita reintentar 6 veces por ciclo
         self._page_cache[dur] = (now, html)
         return html
+
+    def _page_warn(self, fmt: str, *args) -> None:
+        now = time.time()
+        if now - self._last_page_warn >= 60.0:
+            self._last_page_warn = now
+            log.warning(fmt, *args)
+        else:
+            log.debug(fmt, *args)
 
     async def _markets_for_slug(self, http, symbol: str, dur: int,
                                  slug: str) -> list[dict]:
