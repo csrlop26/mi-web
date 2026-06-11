@@ -47,7 +47,9 @@ async def check_polymarket() -> bool:
 
     gamma = "https://gamma-api.polymarket.com"
     clob  = "https://clob.polymarket.com"
-    headers = {"User-Agent": "Mozilla/5.0 (polyedge-bot/2.0)"}
+    headers = {"User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                              "AppleWebKit/537.36 (KHTML, like Gecko) "
+                              "Chrome/126.0.0.0 Safari/537.36")}
 
     async with aiohttp.ClientSession(headers=headers) as http:
         # 1) slug determinista
@@ -55,7 +57,8 @@ async def check_polymarket() -> bool:
         for dur in (15, 5):
             period  = dur * 60
             aligned = int(time.time() // period) * period
-            for ts in (aligned, aligned - period, aligned + period):
+            for ts in (aligned, aligned + period, aligned - period,
+                       aligned + 2 * period):
                 slug = f"btc-updown-{dur}m-{ts}"
                 url  = f"{gamma}/events?slug={slug}&limit=5"
                 async with http.get(url, timeout=12) as r:
@@ -76,6 +79,45 @@ async def check_polymarket() -> bool:
                         break
             if found_market:
                 break
+
+        if not found_market:
+            # Fallback: scraping de la página web (fuente de verdad)
+            import re as _re
+            print(INF + "Slug determinista sin resultado — scrapeando polymarket.com/crypto/15M ...")
+            for dur in (15, 5):
+                try:
+                    async with http.get(f"https://polymarket.com/crypto/{dur}M",
+                                        timeout=15) as r:
+                        if r.status != 200:
+                            print(f"  {INF}  /crypto/{dur}M → HTTP {r.status}")
+                            continue
+                        html = await r.text()
+                except Exception as e:
+                    print(f"  {INF}  /crypto/{dur}M error: {e}")
+                    continue
+                epochs = sorted({int(x) for x in
+                                 _re.findall(rf"btc-updown-{dur}m-(\d+)", html)})
+                if not epochs:
+                    print(f"  {INF}  /crypto/{dur}M sin slugs en HTML")
+                    continue
+                now = time.time()
+                live = [e for e in epochs if e <= now < e + dur * 60]
+                pick = (live or [e for e in epochs if e > now] or epochs)[0]
+                slug = f"btc-updown-{dur}m-{pick}"
+                print(OK + f"Web: slug actual extraído → {slug}")
+                async with http.get(f"{gamma}/events?slug={slug}&limit=5",
+                                    timeout=12) as r:
+                    if r.status == 200:
+                        data = await r.json(content_type=None)
+                        for ev in data or []:
+                            mkts = ev.get("markets", [])
+                            if mkts:
+                                found_market = mkts[0]
+                                found_market["_slug"] = slug
+                                print(OK + f"Gamma API confirma: {found_market.get('question','?')}")
+                                break
+                if found_market:
+                    break
 
         if not found_market:
             # Fallback: listado general

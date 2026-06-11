@@ -40,7 +40,7 @@ for /f %%i in ('%PY% -c "import datetime;print(datetime.date.today().strftime('%
 set LOGFILE=%~dp0logs\paper-%FECHA%.log
 
 REM ── lanzar bot en ventana minimizada ─────────────────────────
-start "PolyEdge-BOT" /min cmd /c ""%~dp0_bot_loop.bat" "%LOGFILE%" %PY%"
+start "PolyEdge-BOT" /min "%~dp0_bot_loop.bat" "%LOGFILE%" %PY%
 
 REM ── esperar a que el bot escriba las primeras líneas ─────────
 timeout /t 3 /nobreak >nul

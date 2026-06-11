@@ -2,9 +2,13 @@
 REM Bucle de resiliencia interno — llamado por start-bot.bat (no ejecutar directo)
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
-set LOGFILE=%1
-set PY=%2
+REM %~1 quita las comillas externas; sin esto la redireccion >> falla
+REM (comillas dobladas) y la ventana queda negra sin escribir log.
+set "LOGFILE=%~1"
+set "PY=%~2"
 set REINICIOS=0
+if "%LOGFILE%"=="" set "LOGFILE=%~dp0logs\paper-manual.log"
+if "%PY%"=="" set "PY=python"
 
 echo [%date% %time%] === PolyEdge paper iniciado === >> "%LOGFILE%"
 

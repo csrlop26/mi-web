@@ -2,15 +2,26 @@
 
 Actualizado a la API de 2026. Diagnóstico detallado en logs:
   POLY-OK   BTC/5m  → mercado encontrado y cotizando
+  POLY-NEXT BTC/5m  → ventana encontrada pero aún no empieza
+  POLY-PAGE BTC/5m  → slug extraído de la web polymarket.com
   POLY-WAIT BTC/5m  → en backoff tras no encontrar mercado
-  POLY-ERR  BTC/5m  → error HTTP concreto al buscar
   POLY-BOOK BTC/5m  → libro bid/ask recibido
+  POLY-HTTP …       → error HTTP concreto (403 = bloqueo de IP)
+
+Cadena de descubrimiento (en orden):
+  1. slug determinista  {asset}-updown-{dur}m-{epoch alineado}
+  2. scraping de polymarket.com/crypto/{dur}M  (el slug actual SIEMPRE
+     está en esa página aunque el listado general de la API no lo dé)
+  3. slug de serie legacy
+  4. listado general de /markets
+  5. búsqueda pública
 """
 from __future__ import annotations
 
 import asyncio
 import json as _json
 import logging
+import re
 import time
 
 from ..events import PredictionQuote, WindowResolution
@@ -26,6 +37,18 @@ PTB_URLS = (
 DISCOVERY_BACKOFF = 10.0
 RESOLVE_RETRY     = 5.0
 RESOLVE_MAX_TRIES = 12
+PAGE_CACHE_TTL    = 30.0   # html de polymarket.com compartido entre símbolos
+MAX_LEAD_SECS     = 1200.0 # aceptar ventanas que empiezan en < 20 min
+
+# UA de navegador real: la API Gamma y polymarket.com pasan por Cloudflare
+# y un UA de bot puede devolver 403 intermitente.
+BROWSER_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+              "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
+PAGE_HEADERS = {
+    "User-Agent": BROWSER_UA,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+}
 
 SLUG_PREFIX  = {"BTC": "btc", "ETH": "eth", "SOL": "sol", "XRP": "xrp"}
 SEARCH_NAME  = {"BTC": "bitcoin", "ETH": "ethereum",
@@ -46,6 +69,8 @@ class PolymarketFeed:
         self.durations = sorted({int(d) for d in durations_minutes})
         if not self.symbols:
             raise SystemExit(f"Polymarket: ningún símbolo soportado en {symbols}")
+        self._page_cache: dict[int, tuple[float, str]] = {}
+        self._last_403_log = 0.0
 
     async def events(self):
         try:
@@ -56,7 +81,7 @@ class PolymarketFeed:
             ) from exc
 
         async with aiohttp.ClientSession(
-                headers={"User-Agent": "Mozilla/5.0 (polyedge-bot/2.0)"}) as http:
+                headers={"User-Agent": BROWSER_UA}) as http:
             active: dict[tuple, dict | None] = {}
             next_discovery: dict[tuple, float] = {}
             pending: list[dict] = []
@@ -109,6 +134,7 @@ class PolymarketFeed:
     async def _discover(self, http, symbol: str, dur: int) -> dict | None:
         markets = (
             await self._via_deterministic_slug(http, symbol, dur)
+            or await self._via_web_page(http, symbol, dur)
             or await self._via_series_slug(http, symbol, dur)
             or await self._via_market_listing(http, symbol, dur)
             or await self._via_search(http, symbol, dur)
@@ -118,12 +144,17 @@ class PolymarketFeed:
                         "(reintento en %.0fs)",
                         symbol, dur, DISCOVERY_BACKOFF)
             return None
-        markets.sort(key=lambda m: m["end_ts"])
+        now = time.time()
+        # Preferir la ventana EN CURSO; si no hay, la próxima más cercana.
+        markets.sort(key=lambda m: (m["start_ts"] > now, m["end_ts"]))
         m = markets[0]
-        secs = m["end_ts"] - time.time()
-        log.info("POLY-OK %s/%dm: '%s' (cierra en %.0fs | token %s…)",
-                 symbol, dur, m["question"][:50], secs,
-                 m["up_token"][:12])
+        if m["start_ts"] > now:
+            log.info("POLY-NEXT %s/%dm: '%s' empieza en %.0fs (en espera)",
+                     symbol, dur, m["question"][:50], m["start_ts"] - now)
+        else:
+            log.info("POLY-OK %s/%dm: '%s' (cierra en %.0fs | token %s…)",
+                     symbol, dur, m["question"][:50], m["end_ts"] - now,
+                     m["up_token"][:12])
         return m
 
     async def _via_deterministic_slug(self, http, symbol: str,
@@ -132,23 +163,83 @@ class PolymarketFeed:
         period  = dur * 60
         aligned = int(time.time() // period) * period
         out: list[dict] = []
-        for ts in (aligned, aligned - period, aligned + period):
+        for ts in (aligned, aligned + period, aligned - period,
+                   aligned + 2 * period):
             slug = f"{SLUG_PREFIX[symbol]}-updown-{dur}m-{ts}"
-            # Intento 1: GET /events?slug=
-            data = await self._get(http, f"{GAMMA_API}/events",
-                                   {"slug": slug, "limit": "5"})
-            if not data:
-                # Intento 2: GET /events/slug/{slug}
-                one = await self._get(http, f"{GAMMA_API}/events/slug/{slug}")
-                data = [one] if isinstance(one, dict) else None
-            for ev in data or []:
-                out += self._parse_markets(symbol, dur,
-                                           ev.get("markets", []),
-                                           slug=ev.get("slug") or slug)
+            out = await self._markets_for_slug(http, symbol, dur, slug)
             if out:
                 log.debug("POLY-SLUG %s/%dm: encontrado vía slug %s",
                           symbol, dur, slug)
                 break
+        return out
+
+    async def _via_web_page(self, http, symbol: str, dur: int) -> list[dict]:
+        """Extrae el slug actual del HTML de polymarket.com/crypto/{dur}M.
+
+        El listado general de la API Gamma NO incluye las ventanas activas
+        de 5/15 min, pero la página web siempre embebe el slug del mercado
+        en curso. Es la fuente de verdad cuando el slug determinista falla
+        (p. ej. si Polymarket cambia la alineación de los epochs).
+        """
+        html = await self._page_html(http, dur)
+        if not html:
+            return []
+        pattern = rf"{SLUG_PREFIX[symbol]}-updown-{dur}m-(\d+)"
+        epochs = sorted({int(e) for e in re.findall(pattern, html)})
+        if not epochs:
+            log.debug("POLY-PAGE %s/%dm: sin slugs en el HTML", symbol, dur)
+            return []
+        now = time.time()
+        period = dur * 60
+        live     = [e for e in epochs if e <= now < e + period]
+        upcoming = [e for e in epochs if e > now]
+        for ts in (live + upcoming)[:3] or epochs[-1:]:
+            slug = f"{SLUG_PREFIX[symbol]}-updown-{dur}m-{ts}"
+            out = await self._markets_for_slug(http, symbol, dur, slug)
+            if out:
+                log.info("POLY-PAGE %s/%dm: slug %s extraído de la web",
+                         symbol, dur, slug)
+                return out
+        return []
+
+    async def _page_html(self, http, dur: int) -> str | None:
+        """HTML de la página de cripto, cacheado y compartido entre símbolos."""
+        cached = self._page_cache.get(dur)
+        now = time.time()
+        if cached and now - cached[0] < PAGE_CACHE_TTL:
+            return cached[1]
+        url = f"https://polymarket.com/crypto/{dur}M"
+        try:
+            async with http.get(url, timeout=15, headers=PAGE_HEADERS) as r:
+                if r.status != 200:
+                    log.debug("POLY-PAGE %s → HTTP %d", url, r.status)
+                    return None
+                html = await r.text()
+        except Exception as exc:
+            log.debug("POLY-PAGE err %s: %s", url, exc)
+            return None
+        self._page_cache[dur] = (now, html)
+        return html
+
+    async def _markets_for_slug(self, http, symbol: str, dur: int,
+                                 slug: str) -> list[dict]:
+        # Intento 1: GET /events?slug=
+        data = await self._get(http, f"{GAMMA_API}/events",
+                               {"slug": slug, "limit": "5"})
+        if not data:
+            # Intento 2: GET /events/slug/{slug}
+            one = await self._get(http, f"{GAMMA_API}/events/slug/{slug}")
+            data = [one] if isinstance(one, dict) else None
+        if not data:
+            # Intento 3: el slug también existe como mercado individual
+            mkts = await self._get(http, f"{GAMMA_API}/markets",
+                                   {"slug": slug, "limit": "5"})
+            if mkts:
+                return self._parse_markets(symbol, dur, mkts, slug=slug)
+        out: list[dict] = []
+        for ev in data or []:
+            out += self._parse_markets(symbol, dur, ev.get("markets", []),
+                                       slug=ev.get("slug") or slug)
         return out
 
     async def _via_series_slug(self, http, symbol: str,
@@ -176,9 +267,11 @@ class PolymarketFeed:
         candidates = []
         for m in data or []:
             q = (m.get("question") or "").lower()
-            if name not in q:
+            s = (m.get("slug") or "").lower()
+            if name not in q and SLUG_PREFIX[symbol] + "-" not in s:
                 continue
-            if "up or down" not in q and "updown" not in q:
+            if ("up or down" not in q and "updown" not in q
+                    and "updown" not in s):
                 continue
             candidates.append(m)
         out = self._parse_markets(symbol, dur, candidates)
@@ -200,6 +293,7 @@ class PolymarketFeed:
     def _parse_markets(self, symbol: str, dur: int, raw: list,
                        slug: str | None = None) -> list[dict]:
         now = time.time()
+        period = dur * 60.0
         out = []
         rejected_times: list[float] = []
         for m in raw:
@@ -214,48 +308,56 @@ class PolymarketFeed:
             end_ts = _parse_iso(end)
             if not end_ts or end_ts <= now:
                 continue
-            secs_left = end_ts - now
-            # Excluir solo mercados de muy larga duración (> 2 horas).
-            # Los mercados de 5/15 min caben siempre dentro de ese límite.
-            # Mercados diarios/semanales de "up or down" también se descartan.
-            if secs_left > 7200:
-                rejected_times.append(secs_left)
+            start_ts = end_ts - period
+            # Aceptar la ventana en curso o la próxima (< 20 min de espera).
+            # Descartar ventanas lejanas y mercados largos (diarios, etc.).
+            if start_ts - now > MAX_LEAD_SECS or end_ts - now > 7200:
+                rejected_times.append(end_ts - now)
                 continue
             out.append({
                 "symbol":         symbol,
                 "window_id":      m.get("conditionId") or str(m.get("id", "?")),
                 "question":       m.get("question", "?"),
                 "slug":           m.get("slug") or slug,
-                "up_token":       tokens[0],
+                "up_token":       tokens[_up_index(m, tokens)],
+                "start_ts":       start_ts,
                 "end_ts":         end_ts,
-                "window_seconds": dur * 60.0,
+                "window_seconds": period,
                 "condition_id":   m.get("conditionId"),
                 "open_price":     0.0,
                 "ptb_next_try":   0.0,
             })
         if rejected_times:
             mins = [f"{t/60:.0f}m" for t in sorted(rejected_times)]
-            log.info("POLY-REJECT %s/%dm: %d descartados por tiempo largo: %s",
+            log.info("POLY-REJECT %s/%dm: %d descartados por tiempo: %s",
                      symbol, dur, len(rejected_times), " ".join(mins))
         return out
 
     # ─────────────────────────────────────────────── HTTP helper
 
     async def _get(self, http, url: str, params: dict | None = None):
+        path = url.split("polymarket.com")[-1]
         try:
             async with http.get(url, params=params or {},
                                 timeout=12) as r:
                 if r.status == 200:
                     return await r.json(content_type=None)
-                log.debug("POLY-HTTP %s → %d", url.split("polymarket.com")[-1],
-                          r.status)
+                if r.status == 403:
+                    now = time.time()
+                    if now - self._last_403_log >= 60.0:
+                        self._last_403_log = now
+                        log.warning("POLY-HTTP 403 en %s — Polymarket "
+                                    "bloquea esta IP (geobloqueo/VPN). "
+                                    "Prueba polymarket.com en el navegador.",
+                                    path)
+                else:
+                    log.debug("POLY-HTTP %s → %d", path, r.status)
                 return None
         except asyncio.TimeoutError:
-            log.debug("POLY-HTTP timeout: %s", url.split("polymarket.com")[-1])
+            log.debug("POLY-HTTP timeout: %s", path)
             return None
         except Exception as exc:
-            log.debug("POLY-HTTP err %s: %s",
-                      url.split("polymarket.com")[-1], exc)
+            log.debug("POLY-HTTP err %s: %s", path, exc)
             return None
 
     # ─────────────────────────────────────────────── cotización
@@ -273,6 +375,16 @@ class PolymarketFeed:
                 return
 
     async def _quote(self, http, market: dict, now: float) -> PredictionQuote | None:
+        if now < market["start_ts"]:
+            # Ventana aún no abierta: avisar cada 30 s y no pedir libro.
+            if now - market.get("_last_next_log", 0) >= 30.0:
+                market["_last_next_log"] = now
+                log.info("POLY-NEXT %s/%dm: ventana empieza en %.0fs",
+                         market["symbol"],
+                         int(market["window_seconds"] // 60),
+                         market["start_ts"] - now)
+            return None
+
         if market["open_price"] <= 0 and now >= market["ptb_next_try"]:
             market["ptb_next_try"] = now + 10.0
             await self._price_to_beat(http, market)
@@ -328,6 +440,22 @@ class PolymarketFeed:
                     ts=time.time(),
                 )
         return None
+
+
+def _up_index(m: dict, tokens: list) -> int:
+    """Índice del token UP. Polymarket lista outcomes ['Up','Down'] casi
+    siempre, pero si vinieran invertidos esto evita comprar el lado erróneo."""
+    outcomes = m.get("outcomes")
+    if isinstance(outcomes, str):
+        try:
+            outcomes = _json.loads(outcomes)
+        except (ValueError, TypeError):
+            outcomes = None
+    if outcomes and len(outcomes) == len(tokens):
+        for i, o in enumerate(outcomes):
+            if str(o).strip().lower().startswith(("up", "yes")):
+                return i
+    return 0
 
 
 def _extract_price(data) -> float | None:
