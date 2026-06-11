@@ -108,6 +108,10 @@ class PolymarketFeed:
                 pending = still
 
                 # descubrimiento + cotizaciones
+                # Máx. 1 descubrimiento por ciclo: una ráfaga de ~100
+                # peticiones (6 mercados a la vez) dispara el rate limit
+                # de Cloudflare y la API empieza a devolver 429.
+                discovered_this_cycle = False
                 for symbol in self.symbols:
                     for dur in self.durations:
                         key = (symbol, dur)
@@ -118,8 +122,10 @@ class PolymarketFeed:
                             pending.append(market)
                             active[key] = market = None
                         if market is None:
-                            if now < next_discovery.get(key, 0.0):
+                            if (discovered_this_cycle
+                                    or now < next_discovery.get(key, 0.0)):
                                 continue
+                            discovered_this_cycle = True
                             market = await self._discover(http, symbol, dur)
                             active[key] = market
                             if market is None:
@@ -164,14 +170,18 @@ class PolymarketFeed:
         period  = dur * 60
         aligned = int(time.time() // period) * period
         out: list[dict] = []
-        for ts in (aligned, aligned + period, aligned - period,
-                   aligned + 2 * period):
+        tried: list[str] = []
+        for ts in (aligned, aligned + period, aligned - period):
             slug = f"{SLUG_PREFIX[symbol]}-updown-{dur}m-{ts}"
+            tried.append(slug)
             out = await self._markets_for_slug(http, symbol, dur, slug)
             if out:
-                log.debug("POLY-SLUG %s/%dm: encontrado vía slug %s",
-                          symbol, dur, slug)
+                log.info("POLY-SLUG %s/%dm: encontrado vía %s",
+                         symbol, dur, slug)
                 break
+        if not out:
+            log.info("POLY-SLUG %s/%dm: sin resultado para %s (±1 ventana)",
+                     symbol, dur, tried[0])
         return out
 
     async def _via_web_page(self, http, symbol: str, dur: int) -> list[dict]:
@@ -238,12 +248,12 @@ class PolymarketFeed:
         # Intento 1: GET /events?slug=
         data = await self._get(http, f"{GAMMA_API}/events",
                                {"slug": slug, "limit": "5"})
-        if not data:
-            # Intento 2: GET /events/slug/{slug}
-            one = await self._get(http, f"{GAMMA_API}/events/slug/{slug}")
-            data = [one] if isinstance(one, dict) else None
-        if not data:
-            # Intento 3: el slug también existe como mercado individual
+        if isinstance(data, list) and not data:
+            # 200 con lista vacía: el slug NO existe → no insistir con
+            # rutas alternativas (ahorra peticiones = evita rate limit).
+            return []
+        if data is None:
+            # Error HTTP/red → probar la ruta de mercados directa
             mkts = await self._get(http, f"{GAMMA_API}/markets",
                                    {"slug": slug, "limit": "5"})
             if mkts:
@@ -351,29 +361,40 @@ class PolymarketFeed:
     # ─────────────────────────────────────────────── HTTP helper
 
     async def _get(self, http, url: str, params: dict | None = None):
+        """None = error HTTP/red.  [] o {} = respuesta 200 vacía."""
         path = url.split("polymarket.com")[-1]
         try:
             async with http.get(url, params=params or {},
                                 timeout=12) as r:
                 if r.status == 200:
                     return await r.json(content_type=None)
-                if r.status == 403:
-                    now = time.time()
-                    if now - self._last_403_log >= 60.0:
-                        self._last_403_log = now
-                        log.warning("POLY-HTTP 403 en %s — Polymarket "
-                                    "bloquea esta IP (geobloqueo/VPN). "
-                                    "Prueba polymarket.com en el navegador.",
-                                    path)
-                else:
-                    log.debug("POLY-HTTP %s → %d", path, r.status)
+                self._http_warn(r.status, path)
                 return None
         except asyncio.TimeoutError:
-            log.debug("POLY-HTTP timeout: %s", path)
+            self._http_warn(0, f"timeout {path}")
             return None
         except Exception as exc:
-            log.debug("POLY-HTTP err %s: %s", path, exc)
+            self._http_warn(0, f"{path}: {exc}")
             return None
+
+    def _http_warn(self, status: int, detail: str) -> None:
+        """Cualquier fallo HTTP visible en el log (máx. 1 warning/30 s)."""
+        now = time.time()
+        if now - self._last_403_log < 30.0:
+            log.debug("POLY-HTTP %d %s", status, detail)
+            return
+        self._last_403_log = now
+        if status == 403:
+            log.warning("POLY-HTTP 403 en %s — Polymarket bloquea esta IP "
+                        "(geobloqueo/VPN). Prueba polymarket.com en el "
+                        "navegador.", detail)
+        elif status == 429:
+            log.warning("POLY-HTTP 429 en %s — rate limit de Cloudflare; "
+                        "el bot reduce el ritmo automáticamente.", detail)
+        elif status:
+            log.warning("POLY-HTTP %d en %s", status, detail)
+        else:
+            log.warning("POLY-HTTP error de red: %s", detail)
 
     # ─────────────────────────────────────────────── cotización
 
