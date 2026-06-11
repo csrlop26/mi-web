@@ -479,15 +479,34 @@ class PolymarketFeed:
 
     async def _resolve(self, http, market: dict) -> WindowResolution | None:
         cid = market.get("condition_id")
-        if not cid:
+        slug = market.get("slug")
+        if not cid and not slug:
             return None
-        # Intento 1: query por conditionId
-        data = await self._get(http, f"{GAMMA_API}/markets",
-                               {"condition_ids": cid})
-        # Intento 2: query directa por slug si el primero vino vacío
-        if not data and market.get("slug"):
-            data = await self._get(http, f"{GAMMA_API}/markets",
-                                   {"slug": market["slug"], "limit": "3"})
+
+        # Intentamos tres rutas. La API Gamma acepta conditionId (camelCase).
+        queries = []
+        if cid:
+            queries += [
+                {"conditionId": cid},          # forma camelCase correcta
+                {"condition_ids": cid},         # forma alternativa
+            ]
+        if slug:
+            queries.append({"slug": slug, "limit": "3"})
+
+        data = None
+        for params in queries:
+            data = await self._get(http, f"{GAMMA_API}/markets", params)
+            if data:
+                break
+
+        # Log de diagnóstico: visible en el log cada 30 s por mercado
+        now = time.time()
+        if now - market.get("_last_resolve_log", 0) >= 30.0:
+            market["_last_resolve_log"] = now
+            log.info("POLY-RESOLVE %s '%s': data=%s",
+                     market["symbol"], market.get("question","?")[:35],
+                     f"{len(data)} mercados" if data else "vacío")
+
         for m in data or []:
             prices = m.get("outcomePrices")
             if not prices:
@@ -499,8 +518,12 @@ class PolymarketFeed:
                 continue
             settled = (up in (0.0, 1.0)
                        or m.get("closed") is True
-                       or m.get("acceptingOrders") is False and up != 0.5)
+                       or (m.get("acceptingOrders") is False and up != 0.5))
             if not settled:
+                log.debug("POLY-RESOLVE %s: precios no finales aún "
+                          "outcomePrices=%s closed=%s acceptingOrders=%s",
+                          market["symbol"], p,
+                          m.get("closed"), m.get("acceptingOrders"))
                 continue
             log.info("POLY-RESUELTO %s/%s: UP=%.0f (%s)",
                      market["symbol"], market.get("question","?")[:30], up,
