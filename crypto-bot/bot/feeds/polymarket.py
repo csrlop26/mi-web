@@ -313,6 +313,9 @@ class PolymarketFeed:
             token_ids = m.get("clobTokenIds")
             if not end or not token_ids:
                 continue
+            # La API 2026 expone acceptingOrders; False = mercado parado.
+            if m.get("acceptingOrders") is False or m.get("closed") is True:
+                continue
             tokens = (_json.loads(token_ids)
                       if isinstance(token_ids, str) else token_ids)
             if not tokens:
