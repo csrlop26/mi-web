@@ -201,6 +201,7 @@ class PolymarketFeed:
                        slug: str | None = None) -> list[dict]:
         now = time.time()
         out = []
+        rejected_times: list[float] = []
         for m in raw:
             end = m.get("endDateIso") or m.get("endDate")
             token_ids = m.get("clobTokenIds")
@@ -213,10 +214,12 @@ class PolymarketFeed:
             end_ts = _parse_iso(end)
             if not end_ts or end_ts <= now:
                 continue
-            # Ventana actual = expira en ≤ dur*60 + margen generoso.
-            # Factor 3.0 cubre casos: mercado abierto antes de hora,
-            # retrasos de descubrimiento, diferencias de zona horaria.
-            if end_ts - now > dur * 60 * 3.0:
+            secs_left = end_ts - now
+            # Excluir solo mercados de muy larga duración (> 2 horas).
+            # Los mercados de 5/15 min caben siempre dentro de ese límite.
+            # Mercados diarios/semanales de "up or down" también se descartan.
+            if secs_left > 7200:
+                rejected_times.append(secs_left)
                 continue
             out.append({
                 "symbol":         symbol,
@@ -230,6 +233,10 @@ class PolymarketFeed:
                 "open_price":     0.0,
                 "ptb_next_try":   0.0,
             })
+        if rejected_times:
+            mins = [f"{t/60:.0f}m" for t in sorted(rejected_times)]
+            log.info("POLY-REJECT %s/%dm: %d descartados por tiempo largo: %s",
+                     symbol, dur, len(rejected_times), " ".join(mins))
         return out
 
     # ─────────────────────────────────────────────── HTTP helper
