@@ -11,6 +11,10 @@ set BRANCH=claude/crypto-bot-models-ynsjxm
 set TMPDIR=%TEMP%\polyedge-%RANDOM%
 set SRC=%TMPDIR%\crypto-bot
 
+REM Destino = carpeta del propio update.bat (sin barra final para robocopy)
+set "DEST=%~dp0"
+if "%DEST:~-1%"=="\" set "DEST=%DEST:~0,-1%"
+
 echo.
 echo  PolyEdge -- Actualizador
 echo  ============================================================
@@ -37,13 +41,17 @@ if not exist "%SRC%" (
 )
 
 echo  Aplicando cambios...
-robocopy "%SRC%" "%~dp0" /E /XO /XD __pycache__ .git logs /XF *.pyc *.log /NFL /NDL /NJH /NJS /NC /NS >nul
+echo    Origen : %SRC%
+echo    Destino: %DEST%
+
+robocopy "%SRC%" "%DEST%" /E /XO /XD __pycache__ .git logs /XF *.pyc *.log /NFL /NDL /NJH /NJS /NC /NS
 set ERR=%errorlevel%
 
 rmdir /s /q "%TMPDIR%" >nul 2>&1
 
 if %ERR% GTR 7 (
     echo  [ERROR] robocopy fallo con codigo %ERR%.
+    echo  Codigo 16 = permisos o ruta invalida. Prueba ejecutar como administrador.
     pause & exit /b 1
 )
 
