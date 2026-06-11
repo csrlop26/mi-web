@@ -259,9 +259,17 @@ class PolymarketFeed:
             if mkts:
                 return self._parse_markets(symbol, dur, mkts, slug=slug)
         out: list[dict] = []
+        n_mkts = 0
         for ev in data or []:
-            out += self._parse_markets(symbol, dur, ev.get("markets", []),
+            mlist = ev.get("markets", [])
+            n_mkts += len(mlist)
+            out += self._parse_markets(symbol, dur, mlist,
                                        slug=ev.get("slug") or slug)
+        if data and n_mkts and not out:
+            # El evento existe pero el filtro tiró todos sus mercados:
+            # esto delataría un bug de parseo, hay que verlo en el log.
+            log.info("POLY-SLUG %s/%dm: evento %s existe (%d mercados) "
+                     "pero 0 pasan el filtro", symbol, dur, slug, n_mkts)
         return out
 
     async def _via_series_slug(self, http, symbol: str,
@@ -361,11 +369,18 @@ class PolymarketFeed:
     # ─────────────────────────────────────────────── HTTP helper
 
     async def _get(self, http, url: str, params: dict | None = None):
-        """None = error HTTP/red.  [] o {} = respuesta 200 vacía."""
+        """None = error HTTP/red.  [] o {} = respuesta 200 vacía.
+
+        `_t` rompe la caché de Cloudflare: una misma URL puede quedar
+        cacheada con respuesta vacía (p. ej. tras una ráfaga con rate
+        limit) y devolver vacío para siempre aunque el dato exista.
+        """
         path = url.split("polymarket.com")[-1]
+        p = dict(params or {})
+        p["_t"] = str(int(time.time() * 1000))
         try:
-            async with http.get(url, params=params or {},
-                                timeout=12) as r:
+            async with http.get(url, params=p, timeout=12,
+                                headers={"Cache-Control": "no-cache"}) as r:
                 if r.status == 200:
                     return await r.json(content_type=None)
                 self._http_warn(r.status, path)
