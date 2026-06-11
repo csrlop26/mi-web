@@ -327,7 +327,11 @@ class PolymarketFeed:
         out = []
         rejected_times: list[float] = []
         for m in raw:
-            end = m.get("endDateIso") or m.get("endDate")
+            # endDate PRIMERO: es el timestamp completo. endDateIso es solo
+            # la FECHA ("2026-06-11") → parsearlo da medianoche y todos los
+            # mercados intradía parecen expirados. Este orden invertido tuvo
+            # al bot ciego desde el día 1.
+            end = m.get("endDate") or m.get("endDateIso")
             token_ids = m.get("clobTokenIds")
             if not end or not token_ids:
                 continue
@@ -528,8 +532,13 @@ def _extract_price(data) -> float | None:
 
 
 def _parse_iso(s: str) -> float | None:
-    from datetime import datetime
+    from datetime import datetime, timezone
+    if "T" not in s:
+        return None  # solo fecha, sin hora: inútil para ventanas de minutos
     try:
-        return datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp()
+        dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)  # la API trabaja en UTC
+        return dt.timestamp()
     except ValueError:
         return None
