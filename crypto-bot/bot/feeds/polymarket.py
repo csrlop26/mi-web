@@ -480,52 +480,61 @@ class PolymarketFeed:
     async def _resolve(self, http, market: dict) -> WindowResolution | None:
         cid = market.get("condition_id")
         slug = market.get("slug")
-        if not cid and not slug:
+        if not cid:
             return None
 
-        # Intentamos tres rutas. La API Gamma acepta conditionId (camelCase).
-        queries = []
-        if cid:
-            queries += [
-                {"conditionId": cid},          # forma camelCase correcta
-                {"condition_ids": cid},         # forma alternativa
-            ]
-        if slug:
-            queries.append({"slug": slug, "limit": "3"})
-
+        # La API Gamma ignora conditionId como filtro y devuelve los primeros
+        # 20 mercados del índice. El slug SÍ filtra correctamente.
+        # Intentamos slug primero; conditionId como último recurso.
         data = None
-        for params in queries:
+        for params in (
+            {"slug": slug, "limit": "5"} if slug else None,
+            {"slug": slug, "closed": "true", "limit": "5"} if slug else None,
+            {"conditionId": cid, "limit": "5"},
+        ):
+            if params is None:
+                continue
             data = await self._get(http, f"{GAMMA_API}/markets", params)
             if data:
                 break
 
-        # Log de diagnóstico: visible en el log cada 30 s por mercado
+        # Log de diagnóstico cada 30 s
         now = time.time()
         if now - market.get("_last_resolve_log", 0) >= 30.0:
             market["_last_resolve_log"] = now
-            log.info("POLY-RESOLVE %s '%s': data=%s",
+            n = len(data) if data else 0
+            log.info("POLY-RESOLVE %s '%s': %d mercados (buscando cid=%s…)",
                      market["symbol"], market.get("question","?")[:35],
-                     f"{len(data)} mercados" if data else "vacío")
+                     n, cid[:10] if cid else "?")
 
         for m in data or []:
+            # Saltar mercados que no son el nuestro
+            if m.get("conditionId") != cid:
+                continue
             prices = m.get("outcomePrices")
             if not prices:
+                log.debug("POLY-RESOLVE %s: mercado encontrado sin outcomePrices "
+                          "closed=%s acceptingOrders=%s",
+                          market["symbol"], m.get("closed"), m.get("acceptingOrders"))
                 continue
             p = _json.loads(prices) if isinstance(prices, str) else prices
             try:
                 up = float(p[0])
             except (TypeError, ValueError, IndexError):
                 continue
-            settled = (up in (0.0, 1.0)
+            # Aceptar resolución cuando el precio es definitivo (≤5% o ≥95%)
+            # o cuando el mercado está marcado como cerrado.
+            settled = (up <= 0.05 or up >= 0.95
                        or m.get("closed") is True
+                       or m.get("resolved") is True
                        or (m.get("acceptingOrders") is False and up != 0.5))
             if not settled:
-                log.debug("POLY-RESOLVE %s: precios no finales aún "
+                log.debug("POLY-RESOLVE %s: precios aún en juego "
                           "outcomePrices=%s closed=%s acceptingOrders=%s",
                           market["symbol"], p,
                           m.get("closed"), m.get("acceptingOrders"))
                 continue
-            log.info("POLY-RESUELTO %s/%s: UP=%.0f (%s)",
+            log.info("POLY-RESUELTO %s/%s: UP=%.2f (%s)",
                      market["symbol"], market.get("question","?")[:30], up,
                      "ganó UP" if up > 0.5 else "ganó DOWN")
             return WindowResolution(
