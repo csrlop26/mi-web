@@ -62,11 +62,13 @@ export default function JournalSection({ step = 0, isTimelapseMode = false, forc
 
   return (
     <motion.section
-      initial={isTimelapseMode ? { y: 35, opacity: 0 } : {}}
-      animate={isTimelapseMode ? { y: 0, opacity: 1 } : {}}
+      initial={{ y: isTimelapseMode ? 35 : 30, opacity: 0 }}
+      animate={isTimelapseMode ? { y: 0, opacity: 1 } : undefined}
+      whileInView={!isTimelapseMode ? { y: 0, opacity: 1 } : undefined}
+      viewport={{ once: true, margin: '-100px' }}
       transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
       id="journal"
-      className={`${forceMobile ? 'py-12 px-5' : 'py-24 md:py-40'} border-t border-black/10 relative`}
+      className={`${forceMobile ? 'py-12 px-5' : 'py-20 sm:py-24 md:py-40 px-5 sm:px-8 md:px-12 lg:px-20 max-w-[1440px] mx-auto'} border-t border-black/10 relative`}
     >
       <div className={`grid grid-cols-1 ${forceMobile ? 'gap-10' : 'lg:grid-cols-12 gap-16 lg:gap-24'} font-sans`}>
         {/* Left column info */}

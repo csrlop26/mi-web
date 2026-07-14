@@ -40,6 +40,9 @@ export default function App() {
   const heroContentScale = useTransform(heroProgress, [0, 1], [1, shouldReduceMotion ? 1 : 0.82]);
   const heroContentOpacity = useTransform(heroProgress, [0, 1], [1, 0]);
   const heroContentY = useTransform(heroProgress, [0, 1], [0, shouldReduceMotion ? 0 : 60]);
+  // Wordmark fill crossfades dark -> white across the back half of the hero
+  // scroll, so it lands white right as the dark Philosophy section arrives.
+  const wordmarkColor = useTransform(heroProgress, [0.45, 1], ['#0A0A09', '#EAE7E2']);
 
   // "Cerramos" / "Esa Brecha" converge from opposite edges as the section
   // scrolls into view, and pull back apart if the user scrolls back up.
@@ -48,10 +51,14 @@ export default function App() {
     target: philosophyRef,
     offset: ['start end', 'center center'],
   });
-  // Scaled by viewport width — on mobile this row is stacked (flex-col), so
-  // the full 220px desktop shift would push the text almost off-screen.
+  // Below sm, the row is stacked (flex-col) — the "converge from opposite
+  // edges" metaphor only makes sense side-by-side, and any horizontal shift
+  // there risks pushing text past the padding and clipping it. Disable it
+  // outright on mobile instead of just shrinking it.
   const philosophyShift =
-    typeof window !== 'undefined' ? Math.min(220, window.innerWidth * 0.28) : 220;
+    typeof window !== 'undefined' && window.innerWidth >= 640
+      ? Math.min(220, window.innerWidth * 0.28)
+      : 0;
   const closesX = useTransform(philosophyProgress, [0, 1], [shouldReduceMotion ? 0 : -philosophyShift, 0]);
   const gapX = useTransform(philosophyProgress, [0, 1], [shouldReduceMotion ? 0 : philosophyShift, 0]);
 
@@ -254,9 +261,10 @@ export default function App() {
           <HeroCanvas />
           <HeroWave />
 
+          <div className="w-full max-w-[1440px] mx-auto flex flex-col justify-between h-full flex-1 z-10 mt-12 relative">
           <motion.div
             style={{ scale: heroContentScale, opacity: heroContentOpacity, y: heroContentY }}
-            className="w-full max-w-[1440px] mx-auto flex flex-col justify-between h-full flex-1 z-10 mt-12 relative"
+            className="w-full flex flex-col"
           >
             <div className="flex flex-col items-center text-center gap-8 w-full max-w-3xl mx-auto">
               <div className="space-y-6 flex flex-col items-center">
@@ -304,13 +312,22 @@ export default function App() {
                 </motion.p>
               </div>
             </div>
+          </motion.div>
 
-            <div className="w-full mt-auto pt-24">
+            {/* Wordmark — deliberately NOT inside the fading wrapper above:
+                it stays fully visible and crossfades to white as you scroll,
+                so it reads as a persistent title handing off to the next
+                (dark) section instead of disappearing with the rest of hero. */}
+            <div className="w-full mt-auto pt-24 relative">
+              {/* Colored wave band behind the letters for contrast against the photo */}
+              <div className="absolute inset-x-0 bottom-0 h-full flex items-end pointer-events-none">
+                <HeroWave tone="accent" className="!h-[70%] sm:!h-[80%]" />
+              </div>
               <motion.div
                 initial={{ opacity: 0, y: 60 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 1.4, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                className="w-full"
+                className="w-full relative"
               >
                 <svg viewBox="0 0 900 120" xmlns="http://www.w3.org/2000/svg" fill="none" className="w-full h-auto select-none pointer-events-none">
                   <defs>
@@ -338,17 +355,18 @@ export default function App() {
                     </filter>
                   </defs>
 
-                  {/* Always-legible solid base — textLength keeps it inside the
-                      viewBox regardless of exact font metrics, so it never
-                      clips at the edges on any screen size */}
-                  <text
+                  {/* Solid base — textLength keeps it inside the viewBox so it
+                      never clips, and its fill crossfades dark -> white as
+                      you scroll, so it lands as a legible title over the
+                      dark section that follows instead of just fading out */}
+                  <motion.text
                     x="50%" y="85%" textAnchor="middle"
                     fontFamily="'Unbounded', sans-serif" fontWeight="700" fontSize="100"
                     textLength="820" lengthAdjust="spacingAndGlyphs"
-                    fill="#0A0A09"
+                    style={{ fill: wordmarkColor }}
                   >
                     AUGUSTOCS
-                  </text>
+                  </motion.text>
 
                   {/* Diffuse sheen, clipped to the letterforms so it never washes them out */}
                   <g clipPath="url(#wordmarkClip)" filter="url(#wordmarkSoften)">
@@ -357,14 +375,14 @@ export default function App() {
                 </svg>
               </motion.div>
             </div>
-          </motion.div>
+          </div>
         </section>
 
         {/* PHILOSOPHY & CAPABILITIES SECTION */}
         <section
           ref={philosophyRef}
           id="philosophy"
-          className="py-20 sm:py-24 md:py-40 bg-[#0A0A09] text-[#EAE7E2] w-[100vw] ml-[calc(50%-50vw)] px-6 md:px-20 border-b border-white/5 relative overflow-hidden"
+          className="py-20 sm:py-24 md:py-40 bg-[#0A0A09] text-[#EAE7E2] w-[100vw] ml-[calc(50%-50vw)] px-5 sm:px-8 md:px-12 lg:px-20 border-b border-white/5 relative overflow-hidden"
         >
           <OrganicParticles />
 
@@ -452,7 +470,7 @@ export default function App() {
         </section>
 
         {/* PROJECTS ASYMMETRIC GRID GALLERY */}
-        <section id="work" className="py-24 md:py-40 max-w-[1440px] mx-auto px-4 sm:px-6 md:px-20 w-full">
+        <section id="work" className="py-20 sm:py-24 md:py-40 max-w-[1440px] mx-auto px-5 sm:px-8 md:px-12 lg:px-20 w-full">
           <div className="flex flex-col mb-16 md:mb-20 font-sans">
             <motion.div
               initial={{ opacity: 0 }}
@@ -608,7 +626,7 @@ export default function App() {
         {/* SERVICES SECTION */}
         <section
           id="services"
-          className="py-20 sm:py-24 md:py-48 bg-[#0A0A09] text-[#EAE7E2] w-[100vw] ml-[calc(50%-50vw)] px-6 md:px-20 border-t border-white/5 relative"
+          className="py-20 sm:py-24 md:py-48 bg-[#0A0A09] text-[#EAE7E2] w-[100vw] ml-[calc(50%-50vw)] px-5 sm:px-8 md:px-12 lg:px-20 border-t border-white/5 relative"
         >
           <OrganicParticles />
           <div className="max-w-[1440px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-16 items-start relative z-10">
@@ -813,7 +831,7 @@ export default function App() {
         {/* FAQ SECTION */}
         <section
           id="faq"
-          className="py-20 sm:py-24 md:py-48 max-w-[1440px] mx-auto w-full px-6 md:px-20 border-t border-black/10"
+          className="py-20 sm:py-24 md:py-48 max-w-[1440px] mx-auto w-full px-5 sm:px-8 md:px-12 lg:px-20 border-t border-black/10"
         >
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-start">
             <motion.div
@@ -945,7 +963,7 @@ export default function App() {
       </main>
 
       {/* FOOTER METADATA BAR */}
-      <footer className="w-full border-t border-black/10 bg-[#EAE7E2] py-12 z-10 px-6 md:px-20 max-w-[1440px] mx-auto">
+      <footer className="w-full border-t border-black/10 bg-[#EAE7E2] py-12 z-10 px-5 sm:px-8 md:px-12 lg:px-20 max-w-[1440px] mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <span className="font-sans text-[10px] uppercase tracking-[0.16em] text-zinc-500">
             © 2026 AUGUSTOCS. TODOS LOS DERECHOS RESERVADOS.
