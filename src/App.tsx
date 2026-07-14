@@ -6,7 +6,8 @@ import CustomCursor from './components/CustomCursor';
 import AmbientParticles from './components/AmbientParticles';
 import OrganicParticles from './components/OrganicParticles';
 import HeroCanvas from './components/HeroCanvas';
-import HeroWave from './components/HeroWave';
+import HeroBlend from './components/HeroBlend';
+import WordmarkHandoff from './components/WordmarkHandoff';
 import MonologButton from './components/MonologButton';
 import ProjectCard from './components/ProjectCard';
 import ProjectMobileCarousel from './components/ProjectMobileCarousel';
@@ -256,7 +257,7 @@ export default function App() {
           </div>
 
           <HeroCanvas />
-          <HeroWave />
+          <HeroBlend />
 
           <div className="w-full max-w-[1440px] mx-auto flex flex-col justify-between h-full flex-1 z-10 mt-12 relative">
           <motion.div
@@ -310,69 +311,12 @@ export default function App() {
               </div>
             </div>
           </motion.div>
-
-            {/* Wordmark — deliberately NOT inside the fading wrapper above,
-                so it stays crisp until hero itself scrolls away. A smaller
-                white version greets you at the top of the next section
-                (see Philosophy below) to sell the "hand-off" feeling. */}
-            <div className="w-full mt-auto pt-24 relative">
-              {/* Soft dark scrim behind the letters for contrast against the photo */}
-              <div
-                className="absolute inset-x-0 bottom-[-10%] h-[220%] pointer-events-none"
-                style={{ background: 'radial-gradient(ellipse 65% 100% at 50% 100%, rgba(10,10,9,0.35) 0%, transparent 70%)' }}
-              />
-              <motion.div
-                initial={{ opacity: 0, y: 60 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 1.4, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                className="w-full relative"
-              >
-                <svg viewBox="0 0 900 120" xmlns="http://www.w3.org/2000/svg" fill="none" className="w-full h-auto select-none pointer-events-none">
-                  <defs>
-                    {/* Narrow bright band on a transparent field — a sheen, not a recolor */}
-                    <motion.linearGradient
-                      id="wordmarkSheen"
-                      gradientUnits="objectBoundingBox"
-                      y1="0" y2="0"
-                      animate={shouldReduceMotion ? {} : { x1: ['-50%', '150%'], x2: ['10%', '210%'] }}
-                      transition={{ duration: 9, repeat: Infinity, repeatDelay: 2, ease: [0.45, 0, 0.55, 1] }}
-                    >
-                      <stop offset="0%" stopColor="#EAE7E2" stopOpacity="0" />
-                      <stop offset="30%" stopColor="#EAE7E2" stopOpacity="0" />
-                      <stop offset="50%" stopColor="#EAE7E2" stopOpacity="0.45" />
-                      <stop offset="70%" stopColor="#EAE7E2" stopOpacity="0" />
-                      <stop offset="100%" stopColor="#EAE7E2" stopOpacity="0" />
-                    </motion.linearGradient>
-                    <clipPath id="wordmarkClip">
-                      <text x="50%" y="85%" textAnchor="middle" fontFamily="'Unbounded', sans-serif" fontWeight="700" fontSize="100" textLength="820" lengthAdjust="spacingAndGlyphs">
-                        AUGUSTOCS
-                      </text>
-                    </clipPath>
-                    <filter id="wordmarkSoften" x="-20%" y="-20%" width="140%" height="140%">
-                      <feGaussianBlur stdDeviation="9" />
-                    </filter>
-                  </defs>
-
-                  {/* Solid base — textLength keeps it inside the viewBox
-                      regardless of exact font metrics, so it never clips */}
-                  <text
-                    x="50%" y="85%" textAnchor="middle"
-                    fontFamily="'Unbounded', sans-serif" fontWeight="700" fontSize="100"
-                    textLength="820" lengthAdjust="spacingAndGlyphs"
-                    fill="#0A0A09"
-                  >
-                    AUGUSTOCS
-                  </text>
-
-                  {/* Diffuse sheen, clipped to the letterforms so it never washes them out */}
-                  <g clipPath="url(#wordmarkClip)" filter="url(#wordmarkSoften)">
-                    <rect x="0" y="0" width="900" height="120" fill="url(#wordmarkSheen)" />
-                  </g>
-                </svg>
-              </motion.div>
-            </div>
           </div>
         </section>
+
+        {/* Single wordmark, shared between hero and Philosophy — see
+            WordmarkHandoff for how it shrinks/whitens/lands via scroll. */}
+        <WordmarkHandoff />
 
         {/* PHILOSOPHY & CAPABILITIES SECTION */}
         <section
@@ -383,28 +327,6 @@ export default function App() {
           <OrganicParticles />
 
           <div className="max-w-[1440px] mx-auto flex flex-col justify-between min-h-[60vh] relative z-10">
-            {/* Small white wordmark — the "hand-off" from the hero's big
-                dark version: it lands here, white, right above the section
-                title, as if it had traveled down and shrunk with the scroll. */}
-            <motion.div
-              initial={{ opacity: 0, y: -24, scale: 0.85 }}
-              whileInView={{ opacity: 1, y: 0, scale: 1 }}
-              viewport={{ once: true, margin: '-120px' }}
-              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-              className="w-full flex justify-center mb-10"
-            >
-              <svg viewBox="0 0 900 120" xmlns="http://www.w3.org/2000/svg" className="w-40 sm:w-56 h-auto select-none pointer-events-none">
-                <text
-                  x="50%" y="85%" textAnchor="middle"
-                  fontFamily="'Unbounded', sans-serif" fontWeight="700" fontSize="100"
-                  textLength="820" lengthAdjust="spacingAndGlyphs"
-                  fill="#EAE7E2"
-                >
-                  AUGUSTOCS
-                </text>
-              </svg>
-            </motion.div>
-
             <motion.span
               initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
