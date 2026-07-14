@@ -40,9 +40,6 @@ export default function App() {
   const heroContentScale = useTransform(heroProgress, [0, 1], [1, shouldReduceMotion ? 1 : 0.82]);
   const heroContentOpacity = useTransform(heroProgress, [0, 1], [1, 0]);
   const heroContentY = useTransform(heroProgress, [0, 1], [0, shouldReduceMotion ? 0 : 60]);
-  // Wordmark fill crossfades dark -> white across the back half of the hero
-  // scroll, so it lands white right as the dark Philosophy section arrives.
-  const wordmarkColor = useTransform(heroProgress, [0.45, 1], ['#0A0A09', '#EAE7E2']);
 
   // "Cerramos" / "Esa Brecha" converge from opposite edges as the section
   // scrolls into view, and pull back apart if the user scrolls back up.
@@ -314,15 +311,16 @@ export default function App() {
             </div>
           </motion.div>
 
-            {/* Wordmark — deliberately NOT inside the fading wrapper above:
-                it stays fully visible and crossfades to white as you scroll,
-                so it reads as a persistent title handing off to the next
-                (dark) section instead of disappearing with the rest of hero. */}
+            {/* Wordmark — deliberately NOT inside the fading wrapper above,
+                so it stays crisp until hero itself scrolls away. A smaller
+                white version greets you at the top of the next section
+                (see Philosophy below) to sell the "hand-off" feeling. */}
             <div className="w-full mt-auto pt-24 relative">
-              {/* Colored wave band behind the letters for contrast against the photo */}
-              <div className="absolute inset-x-0 bottom-0 h-full flex items-end pointer-events-none">
-                <HeroWave tone="accent" className="!h-[70%] sm:!h-[80%]" />
-              </div>
+              {/* Soft dark scrim behind the letters for contrast against the photo */}
+              <div
+                className="absolute inset-x-0 bottom-[-10%] h-[220%] pointer-events-none"
+                style={{ background: 'radial-gradient(ellipse 65% 100% at 50% 100%, rgba(10,10,9,0.35) 0%, transparent 70%)' }}
+              />
               <motion.div
                 initial={{ opacity: 0, y: 60 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -355,18 +353,16 @@ export default function App() {
                     </filter>
                   </defs>
 
-                  {/* Solid base — textLength keeps it inside the viewBox so it
-                      never clips, and its fill crossfades dark -> white as
-                      you scroll, so it lands as a legible title over the
-                      dark section that follows instead of just fading out */}
-                  <motion.text
+                  {/* Solid base — textLength keeps it inside the viewBox
+                      regardless of exact font metrics, so it never clips */}
+                  <text
                     x="50%" y="85%" textAnchor="middle"
                     fontFamily="'Unbounded', sans-serif" fontWeight="700" fontSize="100"
                     textLength="820" lengthAdjust="spacingAndGlyphs"
-                    style={{ fill: wordmarkColor }}
+                    fill="#0A0A09"
                   >
                     AUGUSTOCS
-                  </motion.text>
+                  </text>
 
                   {/* Diffuse sheen, clipped to the letterforms so it never washes them out */}
                   <g clipPath="url(#wordmarkClip)" filter="url(#wordmarkSoften)">
@@ -387,6 +383,28 @@ export default function App() {
           <OrganicParticles />
 
           <div className="max-w-[1440px] mx-auto flex flex-col justify-between min-h-[60vh] relative z-10">
+            {/* Small white wordmark — the "hand-off" from the hero's big
+                dark version: it lands here, white, right above the section
+                title, as if it had traveled down and shrunk with the scroll. */}
+            <motion.div
+              initial={{ opacity: 0, y: -24, scale: 0.85 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              viewport={{ once: true, margin: '-120px' }}
+              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full flex justify-center mb-10"
+            >
+              <svg viewBox="0 0 900 120" xmlns="http://www.w3.org/2000/svg" className="w-40 sm:w-56 h-auto select-none pointer-events-none">
+                <text
+                  x="50%" y="85%" textAnchor="middle"
+                  fontFamily="'Unbounded', sans-serif" fontWeight="700" fontSize="100"
+                  textLength="820" lengthAdjust="spacingAndGlyphs"
+                  fill="#EAE7E2"
+                >
+                  AUGUSTOCS
+                </text>
+              </svg>
+            </motion.div>
+
             <motion.span
               initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
