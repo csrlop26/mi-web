@@ -276,7 +276,7 @@ export default function App() {
                   }}
                   className="w-12 h-auto"
                 >
-                  <img src="/logo-normal.png" alt="AugustoCS" className="w-full h-auto select-none" />
+                  <img src="/logo-negative.png" alt="AugustoCS" className="w-full h-auto select-none" />
                 </motion.div>
 
                 <h1 className="font-serif text-lg sm:text-xl md:text-2xl lg:text-[2rem] tracking-[-0.02em] leading-[1.1] font-normal text-white max-w-xl mt-6">
