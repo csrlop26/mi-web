@@ -59,8 +59,8 @@ export default function StudioSection({ step = 0, isTimelapseMode = false, force
       id="studio"
       className={
         forceMobile
-          ? "py-12 border-t border-white/5 relative bg-[#111110] w-full px-5 mt-12"
-          : "py-24 md:py-40 border-t border-white/5 relative bg-[#111110] w-[100vw] ml-[calc(50%-50vw)] px-4 sm:px-6 md:px-[calc(50vw-720px+5rem)] xl:px-[calc(50vw-720px)] mt-24"
+          ? "py-12 border-t border-white/5 relative bg-[#0A0A09] w-full px-5 mt-12"
+          : "py-24 md:py-40 border-t border-white/5 relative bg-[#0A0A09] w-[100vw] ml-[calc(50%-50vw)] px-4 sm:px-6 md:px-[calc(50vw-720px+5rem)] xl:px-[calc(50vw-720px)] mt-24"
       }
     >
       <div
@@ -73,15 +73,15 @@ export default function StudioSection({ step = 0, isTimelapseMode = false, force
         {/* Left Side: Category Label */}
         <div className={forceMobile ? "space-y-6" : "lg:col-span-4 space-y-8"}>
           <div className="space-y-2">
-            <span className="font-sans text-[10px] uppercase tracking-[0.3em] text-[#FDFCFB] block font-semibold">
-              {isTimelapseMode ? <TypewriterText text="01 / Filosofía de Estudio" speed={20} /> : '01 / Filosofía de Estudio'}
+            <span className="font-sans text-[10px] uppercase tracking-[0.3em] text-[#EAE7E2] block font-semibold">
+              {isTimelapseMode ? <TypewriterText text="02 / Filosofía de Estudio" speed={20} /> : '02 / Filosofía de Estudio'}
             </span>
             <h2 className="font-serif text-3xl font-light tracking-wide text-zinc-100">
               {isTimelapseMode ? <TypewriterText text="Acerca del Estudio" speed={25} /> : 'Acerca del Estudio'}
             </h2>
           </div>
           
-          <div className="w-12 h-[1px] bg-[#FDFCFB]/30" />
+          <div className="w-12 h-[1px] bg-[#EAE7E2]/30" />
           
           <p className="font-sans text-xs text-zinc-400 uppercase tracking-widest leading-relaxed">
             {isTimelapseMode ? (

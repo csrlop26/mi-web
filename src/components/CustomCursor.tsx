@@ -1,21 +1,13 @@
-import { useEffect, useState } from 'react';
-import { motion, useMotionValue, useSpring, AnimatePresence } from 'motion/react';
+import { useEffect, useState, useRef } from 'react';
 
 export default function CustomCursor() {
-  const [cursorState, setCursorState] = useState<'default' | 'hover-project' | 'hover-link'>('default');
-  const [hoverText, setHoverText] = useState('VIEW');
+  const [cursorState, setCursorState] = useState<'default' | 'active' | 'active-edge'>('default');
+  const [hoverText, setHoverText] = useState('');
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
 
-  const mouseX = useMotionValue(-100);
-  const mouseY = useMotionValue(-100);
-
-  // Tighter springs — closer to native cursor feel
-  const outerSpringX = useSpring(mouseX, { stiffness: 600, damping: 40, mass: 0.3 });
-  const outerSpringY = useSpring(mouseY, { stiffness: 600, damping: 40, mass: 0.3 });
-
-  const innerSpringX = useSpring(mouseX, { stiffness: 1200, damping: 50 });
-  const innerSpringY = useSpring(mouseY, { stiffness: 1200, damping: 50 });
+  const posRef = useRef({ x: -100, y: -100, currentX: -100, currentY: -100 });
+  const cursorRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
@@ -23,8 +15,8 @@ export default function CustomCursor() {
     if (hasTouch) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      mouseX.set(e.clientX);
-      mouseY.set(e.clientY);
+      posRef.current.x = e.clientX;
+      posRef.current.y = e.clientY;
       if (!isVisible) setIsVisible(true);
     };
 
@@ -34,14 +26,16 @@ export default function CustomCursor() {
     const handleMouseOver = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (!target) return;
-      const closestProject = target.closest('[data-cursor="project"]');
-      const closestLink = target.closest('a, button, [role="button"], input, select, textarea');
 
-      if (closestProject) {
-        setCursorState('hover-project');
-        setHoverText(closestProject.getAttribute('data-cursor-text') || 'VER');
-      } else if (closestLink) {
-        setCursorState('hover-link');
+      const closestCursorText = target.closest('[data-cursor-text]');
+      if (closestCursorText) {
+        setHoverText(closestCursorText.getAttribute('data-cursor-text') || '');
+        // Edge detection to prevent clipping on the right
+        if (e.clientX > window.innerWidth - 130) {
+          setCursorState('active-edge');
+        } else {
+          setCursorState('active');
+        }
       } else {
         setCursorState('default');
       }
@@ -52,65 +46,56 @@ export default function CustomCursor() {
     document.addEventListener('mouseenter', handleMouseEnter);
     window.addEventListener('mouseover', handleMouseOver);
 
+    // Anim frame loop for smooth cursor tracking
+    let animId: number;
+    const updatePosition = () => {
+      const pos = posRef.current;
+      // smooth interpolation
+      pos.currentX += (pos.x - pos.currentX) * 0.15;
+      pos.currentY += (pos.y - pos.currentY) * 0.15;
+
+      if (cursorRef.current) {
+        cursorRef.current.style.transform = `translate3d(${pos.currentX}px, ${pos.currentY}px, 0)`;
+      }
+
+      animId = requestAnimationFrame(updatePosition);
+    };
+    updatePosition();
+
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseleave', handleMouseLeave);
       document.removeEventListener('mouseenter', handleMouseEnter);
       window.removeEventListener('mouseover', handleMouseOver);
+      cancelAnimationFrame(animId);
     };
-  }, [mouseX, mouseY, isVisible]);
+  }, [isVisible]);
 
   if (isTouchDevice || !isVisible) return null;
 
-  const isProject = cursorState === 'hover-project';
-  const isLink = cursorState === 'hover-link';
-
   return (
-    <>
-      <motion.div
-        className="fixed top-0 left-0 pointer-events-none z-[9999] flex items-center justify-center rounded-full"
-        style={{
-          x: outerSpringX,
-          y: outerSpringY,
-          translateX: '-50%',
-          translateY: '-50%',
-          width: isProject ? '80px' : isLink ? '45px' : '20px',
-          height: isProject ? '80px' : isLink ? '45px' : '20px',
-          border: isProject ? 'none' : '1.5px solid #1A1A1A',
-          backgroundColor: isProject ? '#1A1A1A' : isLink ? 'rgba(26,26,26,0.08)' : 'transparent',
-        }}
-        animate={{ scale: isProject ? 1 : isLink ? 1.05 : 1 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-      >
-        <AnimatePresence>
-          {isProject && (
-            <motion.span
-              key="hover-text"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ duration: 0.2 }}
-              className="text-[9px] tracking-[0.25em] font-sans font-bold text-[#FAFAFA] text-center"
-            >
-              {hoverText}
-            </motion.span>
-          )}
-        </AnimatePresence>
-      </motion.div>
+    <div
+      ref={cursorRef}
+      className="cursor-wrap fixed top-0 left-0 pointer-events-none z-[9999]"
+      data-cursor={cursorState === 'default' ? '' : cursorState}
+    >
+      {/* Outer Rectangular Bubble with revealed text — solid chip with a
+          bright border/shadow so it stays legible over both light and dark
+          sections (text-blending a labeled chip goes illegible, so only the
+          plain dot below uses true color inversion). */}
+      <div className="cursor-bubble bg-[#0A0A09] border border-white/25 px-4 py-2 shadow-[0_8px_30px_rgba(0,0,0,0.35)] flex items-center justify-center min-w-[70px]">
+        <span className="cursor-bubble__text font-sans text-[8px] tracking-[0.25em] font-bold text-[#EAE7E2] uppercase block whitespace-nowrap">
+          {hoverText}
+        </span>
+      </div>
 
-      <motion.div
-        className="fixed top-0 left-0 pointer-events-none z-[10000] rounded-full bg-[#1A1A1A]"
-        style={{
-          x: innerSpringX,
-          y: innerSpringY,
-          translateX: '-50%',
-          translateY: '-50%',
-          width: '4px',
-          height: '4px',
-        }}
-        animate={{ scale: isProject ? 0 : isLink ? 1.5 : 1, opacity: isProject ? 0 : 0.8 }}
-        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-      />
-    </>
+      {/* Tiny precise pointer dot — same difference-blend trick */}
+      {cursorState === 'default' && (
+        <div
+          className="w-2 h-2 bg-white rounded-full absolute -translate-x-1/2 -translate-y-1/2 transition-opacity duration-300"
+          style={{ mixBlendMode: 'difference' }}
+        />
+      )}
+    </div>
   );
 }

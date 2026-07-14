@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500">
+  <defs>
+    <filter id="grain-shop">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" result="noise" />
+      <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0" />
+    </filter>
+  </defs>
+
+  <rect width="400" height="500" fill="#17160F" />
+
+  <g transform="translate(140,150)" fill="none" stroke="#EAE7E2" stroke-width="2" opacity="0.85">
+    <path d="M10 40 L20 0 Q30 -30 50 -30 Q70 -30 80 0 L90 40 Z" />
+    <path d="M0 40 L100 40 L92 190 Q90 210 70 210 L20 210 Q0 210 -2 190 Z" />
+    <line x1="20" y1="0" x2="20" y2="14" opacity="0.5" />
+    <line x1="80" y1="0" x2="80" y2="14" opacity="0.5" />
+  </g>
+
+  <g transform="translate(150,300)" stroke="#C2703C" stroke-width="2.5" fill="none">
+    <path d="M0 30 L25 5 L45 22 L80 -15" />
+    <path d="M60 -15 L80 -15 L80 5" />
+  </g>
+
+  <text x="70" y="380" font-family="Georgia, serif" font-size="15" fill="#EAE7E2" opacity="0.55" letter-spacing="1">Shopify &amp; E-commerce</text>
+
+  <rect width="400" height="500" filter="url(#grain-shop)" />
+</svg>

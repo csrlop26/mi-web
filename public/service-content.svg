@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500">
+  <defs>
+    <filter id="grain-content">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" result="noise" />
+      <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0" />
+    </filter>
+  </defs>
+
+  <rect width="400" height="500" fill="#17160F" />
+
+  <g transform="translate(80,160)" stroke="#EAE7E2" stroke-width="2" opacity="0.85">
+    <line x1="0" y1="0" x2="240" y2="0" />
+    <line x1="0" y1="26" x2="240" y2="26" opacity="0.7" />
+    <line x1="0" y1="52" x2="180" y2="52" opacity="0.5" />
+    <line x1="0" y1="78" x2="210" y2="78" opacity="0.5" />
+    <line x1="0" y1="104" x2="140" y2="104" opacity="0.3" />
+  </g>
+
+  <g transform="translate(80,300)">
+    <circle cx="24" cy="24" r="24" fill="none" stroke="#C2703C" stroke-width="2.5" />
+    <path d="M18 14 L34 24 L18 34 Z" fill="#C2703C" />
+  </g>
+
+  <text x="80" y="390" font-family="Georgia, serif" font-size="15" fill="#EAE7E2" opacity="0.55" letter-spacing="1">Contenido Digital</text>
+
+  <rect width="400" height="500" filter="url(#grain-content)" />
+</svg>

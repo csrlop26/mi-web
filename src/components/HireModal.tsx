@@ -88,7 +88,7 @@ export default function HireModal({ isOpen, onClose }: HireModalProps) {
             initial={isMobile ? { y: '100%', opacity: 1 } : { scale: 0.96, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={isMobile ? { y: '100%', opacity: 1 } : { scale: 0.96, opacity: 0, y: 20 }}
-            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ type: 'spring', bounce: 0.15, duration: 0.5 }}
             className="relative bg-[#FDFCFB] border border-black/10 rounded-t-[20px] sm:rounded-none w-full max-w-[900px] h-[92vh] sm:h-auto max-h-[92vh] sm:max-h-[90vh] overflow-hidden flex flex-col md:flex-row shadow-2xl z-10"
           >
             {/* iOS style drag indicator on mobile */}
@@ -143,7 +143,7 @@ export default function HireModal({ isOpen, onClose }: HireModalProps) {
             </div>
 
             {/* Right side: Interactive scheduler steps */}
-            <div className="w-full md:w-7/12 p-6 md:p-12 overflow-y-auto flex-1">
+            <div className="w-full md:w-7/12 p-6 md:p-12 overflow-y-auto flex-1 min-h-0" data-lenis-prevent>
               {finished ? (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}

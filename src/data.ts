@@ -152,5 +152,29 @@ export const JOURNAL_POSTS: JournalPost[] = [
     readTime: '5 min lectura',
     category: 'Estética',
     excerpt: 'Por qué el alto contraste no significa blanco y negro puro, y cómo los tonos sutiles mantienen el estatus premium visual.'
+  },
+  {
+    id: 'diseno-web-castellon',
+    title: 'Diseño Web en Castellón: Cómo crear marcas memorables que convierten',
+    date: 'June 02, 2026',
+    readTime: '5 min lectura',
+    category: 'Estrategia Local',
+    excerpt: 'Exploramos la importancia del diseño web a medida en Castellón de la Plana. Cómo las empresas locales pueden destacar en buscadores y atraer clientes premium.'
+  },
+  {
+    id: 'creacion-paginas-web-valencia',
+    title: 'Creación de Páginas Web y Tiendas Online en Valencia: La Guía del Éxito',
+    date: 'May 24, 2026',
+    readTime: '6 min lectura',
+    category: 'E-Commerce',
+    excerpt: 'Claves de diseño y desarrollo en Shopify para impulsar tu e-commerce desde Valencia y Castellón hacia un mercado global, combinando velocidad y diseño de lujo.'
+  },
+  {
+    id: 'seo-castellon-valencia',
+    title: 'SEO y Conversión: El motor oculto de tu página web en la Comunidad Valenciana',
+    date: 'May 12, 2026',
+    readTime: '5 min lectura',
+    category: 'Marketing Digital',
+    excerpt: 'Por qué la velocidad y la optimización SEO son indispensables para captar clientes en Castellón y Valencia, y cómo integrarlas sin sacrificar la elegancia.'
   }
 ];

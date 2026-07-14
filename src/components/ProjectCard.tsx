@@ -35,7 +35,7 @@ function BuildingCard({ project, step = 0, isTimelapseMode = false, forceMobile 
       animate={isTimelapseMode ? { scale: 1 } : { opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-80px' }}
       transition={isTimelapseMode ? { type: "spring", stiffness: 150, damping: 12 } : { duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-      className={`relative overflow-hidden bg-[#111110] border border-white/5 rounded-none ${forceMobile ? 'w-full' : (colSpan[project.colSpanDesktop] || 'md:col-span-7')} ${forceMobile ? '' : project.marginTopDesktop || ''}`}
+      className={`relative overflow-hidden bg-[#0A0A09] border border-white/5 rounded-none ${forceMobile ? 'w-full' : (colSpan[project.colSpanDesktop] || 'md:col-span-7')} ${forceMobile ? '' : project.marginTopDesktop || ''}`}
     >
       <div className={`w-full ${project.aspectRatio} flex flex-col items-center justify-center relative`}>
         {/* Subtle grid texture */}
@@ -232,7 +232,7 @@ export default function ProjectCard({ project, onOpen, step = 0, isTimelapseMode
               className="h-[2px] bg-red-600 mb-3"
             />
             <div className="flex items-end justify-between gap-4">
-              <h3 className="font-serif text-2xl md:text-3xl font-normal text-white leading-tight group-hover:italic transition-all duration-500">
+              <h3 className="font-serif text-2xl md:text-3xl font-normal text-white leading-tight group-hover:text-zinc-300 transition-all duration-500">
                 {isTimelapseMode ? <TypewriterText text={project.title} speed={15} /> : project.title}
               </h3>
               <motion.div

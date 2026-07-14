@@ -186,7 +186,7 @@ export default function ProjectMobileCarousel({ projects, onOpen }: Props) {
                   draggable={false}
                   decoding="async"
                   className="absolute left-0 top-0 w-full pointer-events-none"
-                  style={{ height: 'auto', minHeight: '100%' }}
+                  style={{ height: 'auto', minHeight: '100%', willChange: 'transform' }}
                   animate={{
                     y: isActive ? [0, -220, 0] : 0,
                   }}

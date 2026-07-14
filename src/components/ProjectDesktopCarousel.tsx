@@ -45,16 +45,35 @@ export default function ProjectDesktopCarousel({ projects, onOpen }: Props) {
   const [active, setActive] = useState(0);
   const [hoveredActive, setHoveredActive] = useState(false);
 
-  // ─── Drag / swipe tracking ────────────────────────────────────────────────
+  // ─── Drag / autoplay tracking ──────────────────────────────────────────────
   const dragStartX = useRef<number | null>(null);
   const dragStartT = useRef<number>(0);
   const lastX      = useRef<number>(0);
   const hasDragged = useRef(false);  // stays true until onClick consumes it
 
+  const AUTOPLAY_MS = 4000;
+  const isPaused = useRef(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const goTo = useCallback(
     (i: number) => setActive(Math.max(0, Math.min(i, total - 1))),
     [total]
   );
+
+  // Autoplay loop: advances every AUTOPLAY_MS unless paused or hovered
+  useEffect(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+
+    timerRef.current = setTimeout(() => {
+      if (!isPaused.current && !hoveredActive) {
+        goTo((active + 1) % total);
+      }
+    }, AUTOPLAY_MS);
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [active, hoveredActive, goTo, total]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -72,6 +91,8 @@ export default function ProjectDesktopCarousel({ projects, onOpen }: Props) {
     lastX.current      = e.clientX;
     dragStartT.current = Date.now();
     hasDragged.current = false;
+    isPaused.current   = true;
+    if (timerRef.current) clearTimeout(timerRef.current);
   };
   const onPointerMove = (e: React.PointerEvent) => {
     lastX.current = e.clientX;
@@ -88,7 +109,7 @@ export default function ProjectDesktopCarousel({ projects, onOpen }: Props) {
       goTo(delta < 0 ? active + 1 : active - 1);
     }
     dragStartX.current = null;
-    // hasDragged stays true → onClick will consume and clear it
+    setTimeout(() => { isPaused.current = false; }, 300);
   };
   const onPointerUp    = (e: React.PointerEvent) => finishDrag(e.clientX);
   const cancelDrag     = () => { finishDrag(lastX.current); hasDragged.current = false; };
@@ -157,13 +178,13 @@ export default function ProjectDesktopCarousel({ projects, onOpen }: Props) {
                   draggable={false}
                   decoding="async"
                   className="absolute left-0 top-0 w-full pointer-events-none"
-                  style={{ height: 'auto', minHeight: '100%' }}
+                  style={{ height: 'auto', minHeight: '100%', willChange: 'transform' }}
                   animate={{
-                    // Smooth scroll: top → scroll down → back to top
-                    y: isActive ? [0, -310, 0] : 0,
+                    // Smooth scroll: top → scroll down → back to top (only when active and hovered)
+                    y: isActive && hoveredActive ? [0, -310, 0] : 0,
                   }}
                   transition={
-                    isActive
+                    isActive && hoveredActive
                       ? {
                           y: {
                             duration: 11,
@@ -253,34 +274,44 @@ export default function ProjectDesktopCarousel({ projects, onOpen }: Props) {
             </motion.div>
           );
         })}
+
+        {/* Left Arrow Button */}
+        <div className="absolute left-4 z-40">
+          <motion.button
+            onClick={(e) => { e.stopPropagation(); goTo(active - 1); }}
+            disabled={!canPrev}
+            whileHover={canPrev ? { scale: 1.06, x: -1 } : {}}
+            whileTap={canPrev ? { scale: 0.94 } : {}}
+            className={`w-11 h-11 flex items-center justify-center border transition-all duration-200 rounded-full bg-[#FDFCFB]/90 backdrop-blur-sm shadow-sm ${
+              canPrev
+                ? 'border-black/10 text-zinc-800 hover:bg-[#1A1A1A] hover:text-white hover:border-[#1A1A1A]'
+                : 'border-black/5 text-zinc-300 opacity-0 pointer-events-none'
+            }`}
+          >
+            <ArrowLeft size={16} />
+          </motion.button>
+        </div>
+
+        {/* Right Arrow Button */}
+        <div className="absolute right-4 z-40">
+          <motion.button
+            onClick={(e) => { e.stopPropagation(); goTo(active + 1); }}
+            disabled={!canNext}
+            whileHover={canNext ? { scale: 1.06, x: 1 } : {}}
+            whileTap={canNext ? { scale: 0.94 } : {}}
+            className={`w-11 h-11 flex items-center justify-center border transition-all duration-200 rounded-full bg-[#FDFCFB]/90 backdrop-blur-sm shadow-sm ${
+              canNext
+                ? 'border-black/10 text-zinc-800 hover:bg-[#1A1A1A] hover:text-white hover:border-[#1A1A1A]'
+                : 'border-black/5 text-zinc-300 opacity-0 pointer-events-none'
+            }`}
+          >
+            <ArrowRight size={16} />
+          </motion.button>
+        </div>
       </div>
 
       {/* ── Controls row ─────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between mt-10 px-1">
-
-        {/* Prev / Next buttons */}
-        <div className="flex gap-2.5">
-          {[
-            { dir: -1, icon: <ArrowLeft size={15} />, can: canPrev },
-            { dir:  1, icon: <ArrowRight size={15} />, can: canNext },
-          ].map(({ dir, icon, can }) => (
-            <motion.button
-              key={dir}
-              onClick={() => goTo(active + dir)}
-              disabled={!can}
-              whileHover={can ? { scale: 1.06, y: -1 } : {}}
-              whileTap={can ? { scale: 0.94 } : {}}
-              transition={{ type: 'spring', stiffness: 500, damping: 28 }}
-              className={`w-11 h-11 flex items-center justify-center border transition-colors duration-200 ${
-                can
-                  ? 'border-black/20 text-black hover:bg-[#1A1A1A] hover:text-white hover:border-[#1A1A1A]'
-                  : 'border-black/8 text-black/18 cursor-default'
-              }`}
-            >
-              {icon}
-            </motion.button>
-          ))}
-        </div>
 
         {/* Counter */}
         <span className="font-sans text-[11px] tracking-widest text-zinc-400">

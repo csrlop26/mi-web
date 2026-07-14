@@ -102,3 +102,9 @@ No hay tests automatizados en el alcance de v1 (proyecto es un sitio de marketin
 - Integración real de reservas con un calendario.
 - Panel de administración para que el propio negocio edite su config sin tocar código.
 - Multi-tenant con base de datos (hoy alcanza con archivos JSON en el repo).
+
+## Nota: canal de voz (prototipo existente, subsistema separado)
+
+Ya existe en el proyecto un prototipo no versionado (`Asistente demo/`) que atiende **llamadas telefónicas** vía Twilio + OpenAI Realtime API (voz), con personas predefinidas (incluye una de reservas de restaurante). El usuario quiere mantener esto como la vía de voz/llamada para el público general, en paralelo al widget de texto de este spec — son dos piezas independientes que coexisten, no una reemplaza a la otra.
+
+Este spec y su plan de implementación cubren **solo el widget de texto**. El canal de voz (extender/formalizar `Asistente demo/`) es un subsistema separado que necesita su propio brainstorming y spec — quedan preguntas abiertas ahí (¿sigue con OpenAI Realtime o pasa a Claude?, ¿cuenta de Twilio y número ya contratados?, presupuesto de llamadas, dónde se hostea el server Fastify con websockets — no es compatible con funciones serverless tipo Vercel). No se debe expandir el alcance de este plan para cubrirlo.

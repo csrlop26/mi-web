@@ -31,19 +31,40 @@ export default function ContactSection({ step = 0, isTimelapseMode = false, forc
     e.preventDefault();
     setLoading(true);
 
-    // Dynamic mock latency for premium response feel
-    setTimeout(() => {
-      setLoading(false);
-      setSubmitted(true);
-      // reset form
-      setFormData({
-        name: '',
-        email: '',
-        projectType: 'E-commerce',
-        budget: '1.000€ - 2.000€',
-        message: '',
+    // Enviar solicitud de proyecto a FormSubmit.co (envía un correo a cesarl@augustocs.com)
+    fetch("https://formsubmit.co/ajax/cesarl@augustocs.com", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify({
+        Nombre: formData.name,
+        Email: formData.email,
+        "Tipo de Proyecto": formData.projectType,
+        "Inversión Estimada": formData.budget,
+        "Especificaciones": formData.message,
+        _subject: "Nueva Solicitud de Proyecto - AugustoCS"
+      })
+    })
+      .then(() => {
+        setLoading(false);
+        setSubmitted(true);
+        // Resetear formulario
+        setFormData({
+          name: '',
+          email: '',
+          projectType: 'E-commerce',
+          budget: '1.000€ - 2.000€',
+          message: '',
+        });
+      })
+      .catch((err) => {
+        console.error("Error al enviar el formulario:", err);
+        // Marcamos como enviado de todos modos para no bloquear el flujo del usuario
+        setLoading(false);
+        setSubmitted(true);
       });
-    }, 1500);
   };
 
   const projectTypes = [
@@ -62,8 +83,10 @@ export default function ContactSection({ step = 0, isTimelapseMode = false, forc
 
   return (
     <motion.section
-      initial={isTimelapseMode ? { y: 35, opacity: 0 } : {}}
-      animate={isTimelapseMode ? { y: 0, opacity: 1 } : {}}
+      initial={{ y: isTimelapseMode ? 35 : 30, opacity: 0 }}
+      animate={isTimelapseMode ? { y: 0, opacity: 1 } : undefined}
+      whileInView={!isTimelapseMode ? { y: 0, opacity: 1 } : undefined}
+      viewport={{ once: true, margin: '-100px' }}
       transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
       id="contact"
       className={`${forceMobile ? 'py-12 px-5' : 'py-24 md:py-40'} border-t border-black/10 relative`}
@@ -81,7 +104,7 @@ export default function ContactSection({ step = 0, isTimelapseMode = false, forc
               ) : (
                 <>
                   Hagamos <br />
-                  realidad tu <span className="italic text-zinc-400 font-light">visión.</span>
+                  realidad tu <span className="text-zinc-400 font-light">visión.</span>
                 </>
               )}
             </h2>
