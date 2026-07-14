@@ -37,25 +37,6 @@ export default function AboutDrawer({ isOpen, onClose }: AboutDrawerProps) {
     { title: 'Autonomía post-lanzamiento', desc: 'Soporte técnico de 30 días y vídeos formativos de autogestión.' },
   ];
 
-  const principles = [
-    {
-      title: 'Resultados primero, estética después',
-      desc: 'Cada decisión creativa que tomamos se cuestiona frente a una sola pregunta: ¿esto sirve realmente para el crecimiento de tu marca?',
-    },
-    {
-      title: 'Todo o nada',
-      desc: 'Asumimos menos proyectos para poder darlo todo en cada uno. Cuando nos comprometemos con tu marca, estamos completamente presentes y somos responsables del resultado.',
-    },
-    {
-      title: 'Humano primero, siempre',
-      desc: 'Detrás de cada marca hay una persona con una historia real e intereses reales. Nunca perdemos eso de vista. Las experiencias digitales más potentes son las que se sienten humanas.',
-    },
-    {
-      title: 'Intención sobre velocidad',
-      desc: 'El trabajo apresurado se convierte en arrepentimiento. Nos movemos al ritmo que requiere la obra. Cada detalle se gana su lugar antes de pasar al siguiente.',
-    },
-  ];
-
   const processSteps = [
     { step: '01', title: 'Descubrimos tu historia', desc: 'Nos sumergimos en tu marca, extraemos lo que te hace único y lo estructuramos en un posicionamiento claro y una estrategia web que conecta.' },
     { step: '02', title: 'Damos forma a tu presencia digital', desc: 'Diseñamos y estructuramos un sitio web que se siente premium, transmite credibilidad y guía a tu audiencia hacia la conversión.' },
@@ -112,18 +93,12 @@ export default function AboutDrawer({ isOpen, onClose }: AboutDrawerProps) {
             {/* Bio text column */}
             <div className="lg:col-span-7 space-y-8 pr-0 lg:pr-8">
               <h2 className="font-serif text-3xl md:text-4xl leading-tight font-light tracking-tight">
-                Hola, soy César. Creé AugustoCS porque vi negocios de Castellón con un producto excelente y una web que no estaba a su altura.
+                Hola, soy César. Antes de que digas una palabra, tu web ya habló por ti.
               </h2>
               <div className="w-8 h-[1px] bg-black/20" />
               <div className="font-sans text-xs md:text-sm text-zinc-600 space-y-6 leading-relaxed">
                 <p>
-                  Cerca de casa vi tiendas, restaurantes y negocios con años de buen trabajo detrás cuya presencia online no reflejaba nada de eso: webs anticuadas, lentas o directamente inexistentes, perdiendo clientes que ya los estaban buscando.
-                </p>
-                <p>
-                  Empecé AugustoCS para cerrar esa brecha. Soy un estudio joven, y eso lo llevo como ventaja: trabajo con el stack y las herramientas más actuales del diseño web, el e-commerce y la IA aplicada, sin el peso ni los procesos lentos de una agencia tradicional.
-                </p>
-                <p>
-                  Cuando trabajo con un negocio, me sumerjo en su historia real, entiendo qué lo hace diferente y diseño la experiencia digital alrededor de eso — no de una plantilla genérica.
+                  Tu web no es un trámite, es tu carta de presentación digital. Antes de leer una palabra tuya, un cliente ya la vio, y en dos segundos decidió si te toma en serio o cierra la pestaña. La mayoría de negocios lo ignora por completo. Fundé AugustoCS porque me obsesiona justo eso: entender qué hace única a tu marca y plasmarlo en digital tal cual es, sin plantillas genéricas ni la lentitud de una agencia tradicional.
                 </p>
               </div>
             </div>
@@ -133,6 +108,9 @@ export default function AboutDrawer({ isOpen, onClose }: AboutDrawerProps) {
               <div className="relative aspect-[3/4] overflow-hidden bg-zinc-200 border border-black/5">
                 <AbstractLoop className="w-full h-full" />
                 <div className="absolute inset-0 bg-[#EAE7E2]/10 mix-blend-overlay pointer-events-none" />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <img src="/logo-negative.png" alt="AugustoCS" className="w-20 h-20 object-contain opacity-90" />
+                </div>
 
                 {/* Floating tag on corner */}
                 <div className="absolute bottom-4 left-4 font-sans text-[8px] uppercase tracking-widest bg-[#0A0A09] text-[#EAE7E2] px-2 py-1">
@@ -144,32 +122,6 @@ export default function AboutDrawer({ isOpen, onClose }: AboutDrawerProps) {
               </p>
             </div>
 
-          </div>
-
-          {/* Principles Section */}
-          <div className="space-y-8 pt-8 border-t border-black/5">
-            <h3 className="font-sans text-[10px] uppercase tracking-[0.25em] font-bold text-zinc-400">
-              Nuestros Principios
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-              {principles.map((pr, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 18 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: false, margin: '-40px' }}
-                  transition={{ duration: 0.5, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
-                  className="space-y-3 p-6 bg-black/[0.02] border border-black/5"
-                >
-                  <h4 className="font-serif text-lg font-normal tracking-tight text-[#0A0A09]">
-                    {pr.title}
-                  </h4>
-                  <p className="font-sans text-xs text-zinc-500 leading-relaxed">
-                    {pr.desc}
-                  </p>
-                </motion.div>
-              ))}
-            </div>
           </div>
 
           {/* Process Section */}
