@@ -12,20 +12,23 @@ import ProjectCard from './components/ProjectCard';
 import ProjectMobileCarousel from './components/ProjectMobileCarousel';
 import ProjectDesktopCarousel from './components/ProjectDesktopCarousel';
 import ContactSection from './components/ContactSection';
+import JournalSection from './components/JournalSection';
 import AbstractLoop from './components/AbstractLoop';
 import Lenis from 'lenis';
 import { PROJECTS } from './data';
+import { Project } from './types';
 
 // Only mounted after user interaction (click) — kept out of the initial bundle
 const AboutDrawer = lazy(() => import('./components/AboutDrawer'));
 const HireModal = lazy(() => import('./components/HireModal'));
 const ProjectModal = lazy(() => import('./components/ProjectModal'));
-import { Project } from './types';
+const LegalModal = lazy(() => import('./components/LegalModal'));
 
 export default function App() {
   const [activeSection, setActiveSection] = useState('home');
   const [isHireOpen, setIsHireOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const [activeLegalType, setActiveLegalType] = useState<'terms' | 'privacy' | null>(null);
   const [scrollY, setScrollY] = useState(0);
   const heroRef = useRef<HTMLElement>(null);
   const lenisRef = useRef<Lenis | null>(null);
@@ -696,6 +699,8 @@ export default function App() {
           </div>
         </section>
 
+        <JournalSection />
+
         {/* FAQ SECTION */}
         <section
           id="faq"
@@ -955,6 +960,24 @@ export default function App() {
             >
               LinkedIn (Próximamente)
             </span>
+
+            <button
+              onClick={() => setActiveLegalType('terms')}
+              className="group relative font-sans text-[10px] uppercase tracking-[0.16em] text-zinc-600 hover:text-black font-bold pb-0.5 cursor-none bg-transparent border-0 p-0"
+              data-cursor-text="TÉRMINOS"
+            >
+              Términos
+              <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-black group-hover:w-full transition-all duration-350" />
+            </button>
+
+            <button
+              onClick={() => setActiveLegalType('privacy')}
+              className="group relative font-sans text-[10px] uppercase tracking-[0.16em] text-zinc-600 hover:text-black font-bold pb-0.5 cursor-none bg-transparent border-0 p-0"
+              data-cursor-text="PRIVACIDAD"
+            >
+              Privacidad
+              <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-black group-hover:w-full transition-all duration-350" />
+            </button>
           </div>
         </div>
       </footer>
@@ -989,6 +1012,15 @@ export default function App() {
             />
           )}
         </AnimatePresence>
+      </Suspense>
+
+      <Suspense fallback={null}>
+        {activeLegalType && (
+          <LegalModal
+            type={activeLegalType}
+            onClose={() => setActiveLegalType(null)}
+          />
+        )}
       </Suspense>
 
     </div>
