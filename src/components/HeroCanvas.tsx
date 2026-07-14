@@ -32,16 +32,38 @@ export default function HeroCanvas() {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     let animationFrameId: number;
-    let width = (canvas.width = canvas.offsetWidth);
-    let height = (canvas.height = canvas.offsetHeight);
+    let width = canvas.offsetWidth;
+    let height = canvas.offsetHeight;
+    // How much smaller everything (wave amplitude, interaction radius, node
+    // spacing feel) should read compared to the 1440px desktop baseline —
+    // without this, a mobile canvas at the same absolute pixel values reads
+    // as a huge, "zoomed in" tangle instead of a subtle mesh.
+    let motionScale = 1;
 
-    // ─── Build a wave mesh: a dense grid of nodes connected to their neighbors ───
-    const COLS = 26;
-    const ROWS = 14;
+    const applyCanvasSize = () => {
+      width = canvas.offsetWidth;
+      height = canvas.offsetHeight;
+      // Render at the screen's real pixel density so the mesh stays crisp
+      // on high-DPI phones instead of upscaling a blurry low-res canvas.
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      motionScale = Math.max(0.42, Math.min(1, width / 1440));
+    };
+
+    // ─── Build a wave mesh: a grid of nodes connected to their neighbors.
+    // Fewer nodes on small screens — keeps it readable instead of a tangle,
+    // and lighter on mobile GPUs ───
     let nodes: Node[] = [];
     let grid: (Node | undefined)[][] = [];
 
     const buildNodes = () => {
+      const isSmall = width < 640;
+      const isMedium = width >= 640 && width < 1024;
+      const COLS = isSmall ? 12 : isMedium ? 18 : 26;
+      const ROWS = isSmall ? 9 : isMedium ? 11 : 14;
+
       nodes = [];
       grid = Array.from({ length: ROWS }, () => Array(COLS).fill(undefined));
       const spacingX = width / (COLS - 1);
@@ -56,12 +78,12 @@ export default function HeroCanvas() {
         }
       }
     };
+    applyCanvasSize();
     buildNodes();
 
     const handleResize = () => {
       if (!canvas) return;
-      width = canvas.width = canvas.offsetWidth;
-      height = canvas.height = canvas.offsetHeight;
+      applyCanvasSize();
       buildNodes();
     };
 
@@ -94,9 +116,10 @@ export default function HeroCanvas() {
       // displacement each frame so motion glides instead of snapping ───
       for (const n of nodes) {
         const wave =
-          Math.sin(n.col * 0.42 + t * 1.6) * 12 +
-          Math.sin(n.row * 0.7 + t * 1.05) * 9 +
-          Math.sin((n.col + n.row) * 0.3 + t * 0.85) * 7;
+          (Math.sin(n.col * 0.42 + t * 1.6) * 12 +
+            Math.sin(n.row * 0.7 + t * 1.05) * 9 +
+            Math.sin((n.col + n.row) * 0.3 + t * 0.85) * 7) *
+          motionScale;
 
         let targetDispX = 0;
         let targetDispY = wave;
@@ -104,11 +127,11 @@ export default function HeroCanvas() {
         const dx = n.baseX - mouse.x;
         const dy = n.baseY + wave - mouse.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        const maxDist = 150;
+        const maxDist = 150 * motionScale;
         if (dist < maxDist) {
           const ratio = smoothstep(0, maxDist, maxDist - dist);
-          targetDispX += (dx / (dist || 1)) * ratio * 26;
-          targetDispY += (dy / (dist || 1)) * ratio * 26;
+          targetDispX += (dx / (dist || 1)) * ratio * 26 * motionScale;
+          targetDispY += (dy / (dist || 1)) * ratio * 26 * motionScale;
         }
 
         // Critically-damped glide toward the target displacement
@@ -124,7 +147,7 @@ export default function HeroCanvas() {
         const right = grid[n.row]?.[n.col + 1];
         const down = grid[n.row + 1]?.[n.col];
         const distToMouse = Math.hypot(n.x - mouse.x, n.y - mouse.y);
-        const proximity = smoothstep(220, 0, distToMouse);
+        const proximity = smoothstep(220 * motionScale, 0, distToMouse);
         const alpha = 0.045 + proximity * 0.16;
 
         ctx.strokeStyle = `rgba(10, 10, 9, ${alpha})`;
@@ -145,7 +168,7 @@ export default function HeroCanvas() {
       // ─── Draw nodes ───
       for (const n of nodes) {
         const distToMouse = Math.hypot(n.x - mouse.x, n.y - mouse.y);
-        const proximity = smoothstep(220, 0, distToMouse);
+        const proximity = smoothstep(220 * motionScale, 0, distToMouse);
         const r = 1.1 + proximity * 1.4;
         const orange = proximity > 0.05;
         ctx.fillStyle = orange

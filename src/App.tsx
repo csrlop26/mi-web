@@ -48,8 +48,12 @@ export default function App() {
     target: philosophyRef,
     offset: ['start end', 'center center'],
   });
-  const closesX = useTransform(philosophyProgress, [0, 1], [shouldReduceMotion ? 0 : -220, 0]);
-  const gapX = useTransform(philosophyProgress, [0, 1], [shouldReduceMotion ? 0 : 220, 0]);
+  // Scaled by viewport width — on mobile this row is stacked (flex-col), so
+  // the full 220px desktop shift would push the text almost off-screen.
+  const philosophyShift =
+    typeof window !== 'undefined' ? Math.min(220, window.innerWidth * 0.28) : 220;
+  const closesX = useTransform(philosophyProgress, [0, 1], [shouldReduceMotion ? 0 : -philosophyShift, 0]);
+  const gapX = useTransform(philosophyProgress, [0, 1], [shouldReduceMotion ? 0 : philosophyShift, 0]);
 
   // Slow ambient zoom on the closing CTA's background loop as it scrolls through
   const ctaFooterRef = useRef<HTMLElement>(null);
@@ -120,7 +124,7 @@ export default function App() {
 
   // Scroll-spy: highlight the active nav item as the user scrolls
   useEffect(() => {
-    const sections = ['philosophy', 'work', 'services', 'faq', 'contact', 'cta-footer'];
+    const sections = ['philosophy', 'work', 'services', 'cta-footer', 'faq', 'contact'];
 
     const calculateOffsets = () => {
       const offsets: { id: string; offset: number }[] = [];
@@ -223,7 +227,7 @@ export default function App() {
         <section
           ref={heroRef}
           id="home"
-          className="min-h-screen flex flex-col justify-between items-center pt-32 pb-16 px-6 md:px-20 relative overflow-hidden"
+          className="min-h-[100svh] flex flex-col justify-between items-center pt-24 sm:pt-28 md:pt-32 pb-12 sm:pb-16 px-5 sm:px-6 md:px-20 relative overflow-hidden"
         >
           <div className="absolute inset-0 z-0 overflow-hidden">
             <img
@@ -325,7 +329,7 @@ export default function App() {
                       <stop offset="100%" stopColor="#EAE7E2" stopOpacity="0" />
                     </motion.linearGradient>
                     <clipPath id="wordmarkClip">
-                      <text x="50%" y="85%" textAnchor="middle" fontFamily="'Unbounded', sans-serif" fontWeight="700" fontSize="100" letterSpacing="-0.02em">
+                      <text x="50%" y="85%" textAnchor="middle" fontFamily="'Unbounded', sans-serif" fontWeight="700" fontSize="100" textLength="820" lengthAdjust="spacingAndGlyphs">
                         AUGUSTOCS
                       </text>
                     </clipPath>
@@ -334,10 +338,13 @@ export default function App() {
                     </filter>
                   </defs>
 
-                  {/* Always-legible solid base */}
+                  {/* Always-legible solid base — textLength keeps it inside the
+                      viewBox regardless of exact font metrics, so it never
+                      clips at the edges on any screen size */}
                   <text
                     x="50%" y="85%" textAnchor="middle"
-                    fontFamily="'Unbounded', sans-serif" fontWeight="700" fontSize="100" letterSpacing="-0.02em"
+                    fontFamily="'Unbounded', sans-serif" fontWeight="700" fontSize="100"
+                    textLength="820" lengthAdjust="spacingAndGlyphs"
                     fill="#0A0A09"
                   >
                     AUGUSTOCS
@@ -357,7 +364,7 @@ export default function App() {
         <section
           ref={philosophyRef}
           id="philosophy"
-          className="py-32 md:py-40 bg-[#0A0A09] text-[#EAE7E2] w-[100vw] ml-[calc(50%-50vw)] px-6 md:px-20 border-b border-white/5 relative overflow-hidden"
+          className="py-20 sm:py-24 md:py-40 bg-[#0A0A09] text-[#EAE7E2] w-[100vw] ml-[calc(50%-50vw)] px-6 md:px-20 border-b border-white/5 relative overflow-hidden"
         >
           <OrganicParticles />
 
@@ -379,7 +386,7 @@ export default function App() {
                 whileInView={{ opacity: 1 }}
                 viewport={{ once: true, margin: '-100px' }}
                 transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                className="font-serif text-5xl sm:text-7xl md:text-8xl font-light uppercase tracking-tight text-white select-none"
+                className="font-serif text-4xl sm:text-6xl md:text-8xl font-light uppercase tracking-tight text-white select-none"
               >
                 Cerramos
               </motion.h2>
@@ -402,7 +409,7 @@ export default function App() {
                 whileInView={{ opacity: 1 }}
                 viewport={{ once: true, margin: '-100px' }}
                 transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-                className="font-serif text-5xl sm:text-7xl md:text-8xl font-light uppercase tracking-tight text-white select-none"
+                className="font-serif text-4xl sm:text-6xl md:text-8xl font-light uppercase tracking-tight text-white select-none"
               >
                 Esa Brecha.
               </motion.h2>
@@ -601,7 +608,7 @@ export default function App() {
         {/* SERVICES SECTION */}
         <section
           id="services"
-          className="py-32 md:py-48 bg-[#0A0A09] text-[#EAE7E2] w-[100vw] ml-[calc(50%-50vw)] px-6 md:px-20 border-t border-white/5 relative"
+          className="py-20 sm:py-24 md:py-48 bg-[#0A0A09] text-[#EAE7E2] w-[100vw] ml-[calc(50%-50vw)] px-6 md:px-20 border-t border-white/5 relative"
         >
           <OrganicParticles />
           <div className="max-w-[1440px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-16 items-start relative z-10">
@@ -699,12 +706,114 @@ export default function App() {
           </div>
         </section>
 
-        <JournalSection />
+        {/* FOOTER CALL TO ACTION — moved up between Services and FAQ */}
+        <section
+          ref={ctaFooterRef}
+          id="cta-footer"
+          className="relative min-h-[100svh] md:min-h-[90vh] bg-[#0A0A09] text-[#EAE7E2] w-[100vw] ml-[calc(50%-50vw)] flex flex-col items-center justify-center overflow-hidden border-t border-white/5 py-20 sm:py-24 md:py-32 px-5 sm:px-6 md:px-20"
+        >
+          <motion.div
+            style={{ scale: ctaLoopScale }}
+            className="absolute inset-0 z-0 select-none pointer-events-none opacity-25"
+          >
+            <AbstractLoop className="w-full h-full" />
+          </motion.div>
+
+          <div className="max-w-[1440px] mx-auto w-full text-center space-y-12 relative z-10 flex flex-col items-center justify-between">
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-100px' }}
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              className="flex flex-wrap justify-center gap-x-8 gap-y-3 font-mono text-[10px] tracking-[0.2em] text-zinc-400 uppercase mb-8"
+            >
+              <a
+                href="https://wa.me/34624169459"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-white transition-colors cursor-none"
+                data-cursor-text="WHATSAPP"
+              >
+                Escríbenos por WhatsApp ↗
+              </a>
+              <span className="hidden sm:inline text-zinc-700">•</span>
+              <a
+                href="mailto:cesarl@augustocs.com"
+                className="hover:text-white transition-colors cursor-none"
+                data-cursor-text="EMAIL"
+              >
+                cesarl@augustocs.com
+              </a>
+              <span className="hidden sm:inline text-zinc-700">•</span>
+              <button
+                onClick={() => setIsHireOpen(true)}
+                className="hover:text-white transition-colors cursor-none uppercase"
+                data-cursor-text="HIRE"
+              >
+                Empezar proyecto ↗
+              </button>
+            </motion.div>
+
+            <div className="space-y-4">
+              {[
+                { text: 'Creemos', color: 'text-white' },
+                { text: 'Una Experiencia', color: 'text-zinc-400' },
+              ].map((line, i) => (
+                <motion.h2
+                  key={line.text}
+                  initial={{ opacity: 0, y: 40 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: '-100px' }}
+                  transition={{ duration: 0.8, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] }}
+                  className={`font-serif text-4xl sm:text-6xl md:text-8xl font-light ${line.color} leading-[1.05] tracking-tight uppercase select-none`}
+                >
+                  {line.text}
+                </motion.h2>
+              ))}
+              <motion.h2
+                initial={{ opacity: 0, y: 40 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-100px' }}
+                transition={{ duration: 0.8, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                className="font-serif text-4xl sm:text-6xl md:text-8xl font-light text-white leading-[1.05] tracking-tight uppercase select-none"
+              >
+                A Tu Altura.
+              </motion.h2>
+            </div>
+
+            <motion.p
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true, margin: '-100px' }}
+              transition={{ duration: 0.6, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              className="font-sans text-[10px] text-zinc-500 uppercase tracking-[0.25em] leading-relaxed pt-8 max-w-sm"
+            >
+              Disponible para nuevos proyectos — hablemos de tu marca.
+            </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true, margin: '-100px' }}
+              transition={{ duration: 0.6, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              className="pt-12"
+            >
+              <MonologButton
+                onClick={() => setIsHireOpen(true)}
+                className="px-10 py-6 bg-[#EAE7E2] text-[#0A0A09] hover:text-[#0A0A09] font-sans text-xs uppercase tracking-[0.2em] font-bold transition-all duration-350 hover:bg-white hover:shadow-2xl shadow-xl flex items-center gap-3 border border-white/20 cursor-none"
+                data-cursor-text="START"
+              >
+                Cuéntanos tu historia
+                <span className="text-sm">↗</span>
+              </MonologButton>
+            </motion.div>
+          </div>
+        </section>
 
         {/* FAQ SECTION */}
         <section
           id="faq"
-          className="py-32 md:py-48 max-w-[1440px] mx-auto w-full px-6 md:px-20 border-t border-black/10"
+          className="py-20 sm:py-24 md:py-48 max-w-[1440px] mx-auto w-full px-6 md:px-20 border-t border-black/10"
         >
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-start">
             <motion.div
@@ -830,109 +939,8 @@ export default function App() {
         {/* PARTNERSHIPS / CONTACT FORM SECTION */}
         <ContactSection />
 
-        {/* FOOTER CALL TO ACTION */}
-        <section
-          ref={ctaFooterRef}
-          id="cta-footer"
-          className="relative min-h-[90vh] bg-[#0A0A09] text-[#EAE7E2] w-[100vw] ml-[calc(50%-50vw)] flex flex-col items-center justify-center overflow-hidden border-t border-white/5 py-32 px-6 md:px-20"
-        >
-          <motion.div
-            style={{ scale: ctaLoopScale }}
-            className="absolute inset-0 z-0 select-none pointer-events-none opacity-25"
-          >
-            <AbstractLoop className="w-full h-full" />
-          </motion.div>
-
-          <div className="max-w-[1440px] mx-auto w-full text-center space-y-12 relative z-10 flex flex-col items-center justify-between">
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-100px' }}
-              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-              className="flex flex-wrap justify-center gap-x-8 gap-y-3 font-mono text-[10px] tracking-[0.2em] text-zinc-400 uppercase mb-8"
-            >
-              <a
-                href="https://wa.me/34624169459"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-white transition-colors cursor-none"
-                data-cursor-text="WHATSAPP"
-              >
-                Escríbenos por WhatsApp ↗
-              </a>
-              <span className="hidden sm:inline text-zinc-700">•</span>
-              <a
-                href="mailto:cesarl@augustocs.com"
-                className="hover:text-white transition-colors cursor-none"
-                data-cursor-text="EMAIL"
-              >
-                cesarl@augustocs.com
-              </a>
-              <span className="hidden sm:inline text-zinc-700">•</span>
-              <button
-                onClick={() => setIsHireOpen(true)}
-                className="hover:text-white transition-colors cursor-none uppercase"
-                data-cursor-text="HIRE"
-              >
-                Empezar proyecto ↗
-              </button>
-            </motion.div>
-
-            <div className="space-y-4">
-              {[
-                { text: 'Creemos', color: 'text-white' },
-                { text: 'Una Experiencia', color: 'text-zinc-400' },
-              ].map((line, i) => (
-                <motion.h2
-                  key={line.text}
-                  initial={{ opacity: 0, y: 40 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: '-100px' }}
-                  transition={{ duration: 0.8, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] }}
-                  className={`font-serif text-5xl sm:text-7xl md:text-8xl font-light ${line.color} leading-[1.05] tracking-tight uppercase select-none`}
-                >
-                  {line.text}
-                </motion.h2>
-              ))}
-              <motion.h2
-                initial={{ opacity: 0, y: 40 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-100px' }}
-                transition={{ duration: 0.8, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                className="font-serif text-5xl sm:text-7xl md:text-8xl font-light text-white leading-[1.05] tracking-tight uppercase select-none"
-              >
-                A Tu Altura.
-              </motion.h2>
-            </div>
-
-            <motion.p
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true, margin: '-100px' }}
-              transition={{ duration: 0.6, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="font-sans text-[10px] text-zinc-500 uppercase tracking-[0.25em] leading-relaxed pt-8 max-w-sm"
-            >
-              Disponible para nuevos proyectos — hablemos de tu marca.
-            </motion.p>
-
-            <motion.div
-              initial={{ opacity: 0, scale: 0.92 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true, margin: '-100px' }}
-              transition={{ duration: 0.6, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
-              className="pt-12"
-            >
-              <MonologButton
-                onClick={() => setIsHireOpen(true)}
-                className="px-10 py-6 bg-[#EAE7E2] text-[#0A0A09] hover:text-[#0A0A09] font-sans text-xs uppercase tracking-[0.2em] font-bold transition-all duration-350 hover:bg-white hover:shadow-2xl shadow-xl flex items-center gap-3 border border-white/20 cursor-none"
-                data-cursor-text="START"
-              >
-                Cuéntanos tu historia
-                <span className="text-sm">↗</span>
-              </MonologButton>
-            </motion.div>
-          </div>
-        </section>
+        {/* ARTICLES & NOTES — last content section before the footer */}
+        <JournalSection />
 
       </main>
 
