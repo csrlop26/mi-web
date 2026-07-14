@@ -17,14 +17,15 @@ if %ERRORLEVEL% neq 0 (
 echo Preparando despliegue de la carpeta 'disc'...
 cd disc
 
-:: Creamos un repo nuevo solo dentro de 'disc'
+:: Repo temporal solo con el build, apunta a la rama gh-pages (NO a main).
+:: main se queda como codigo fuente real: no lo pisamos en cada deploy.
 git init
 git add -A
-git commit -m "Deploy V2 - Portfolio (Build files only)"
-git branch -M main
+git commit -m "Deploy: build output for GitHub Pages"
+git branch -M gh-pages
 
-echo Subiendo cambios a GitHub (limpiando el resto)...
-git push -f https://github.com/csrlop26/mi-web main:main
+echo Subiendo build a la rama gh-pages (main no se toca)...
+git push -f https://github.com/csrlop26/mi-web gh-pages:gh-pages
 
 cd ..
 echo Despliegue finalizado con exito.
