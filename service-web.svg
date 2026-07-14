@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500">
+  <defs>
+    <filter id="grain-web">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" result="noise" />
+      <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0" />
+    </filter>
+  </defs>
+
+  <rect width="400" height="500" fill="#17160F" />
+
+  <g transform="translate(70,150)" fill="none" stroke="#EAE7E2" stroke-width="2" opacity="0.85">
+    <rect x="0" y="0" width="260" height="180" rx="2" />
+    <line x1="0" y1="34" x2="260" y2="34" />
+    <circle cx="18" cy="17" r="4" fill="#EAE7E2" stroke="none" />
+    <circle cx="34" cy="17" r="4" fill="#EAE7E2" stroke="none" opacity="0.5" />
+    <circle cx="50" cy="17" r="4" fill="#EAE7E2" stroke="none" opacity="0.5" />
+    <rect x="18" y="52" width="100" height="60" opacity="0.5" />
+    <line x1="134" y1="52" x2="242" y2="52" opacity="0.5" />
+    <line x1="134" y1="70" x2="242" y2="70" opacity="0.3" />
+    <line x1="134" y1="88" x2="210" y2="88" opacity="0.3" />
+    <rect x="18" y="130" width="70" height="18" stroke="#C2703C" opacity="1" />
+  </g>
+
+  <text x="70" y="380" font-family="Georgia, serif" font-size="15" fill="#EAE7E2" opacity="0.55" letter-spacing="1">Diseño &amp; Desarrollo</text>
+
+  <rect width="400" height="500" filter="url(#grain-web)" />
+</svg>
