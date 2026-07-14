@@ -89,11 +89,11 @@ export default function ContactSection({ step = 0, isTimelapseMode = false, forc
       viewport={{ once: true, margin: '-100px' }}
       transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
       id="contact"
-      className={`${forceMobile ? 'py-12 px-5' : 'py-20 sm:py-24 md:py-40 px-5 sm:px-8 md:px-12 lg:px-20 max-w-[1440px] mx-auto'} border-t border-black/10 relative`}
+      className={`${forceMobile ? 'py-12 px-5' : 'py-20 sm:py-24 md:py-40 px-5 sm:px-8 md:px-12 lg:px-20 max-w-[1440px] mx-auto w-full'} border-t border-black/10 relative min-w-0`}
     >
-      <div className={`grid grid-cols-1 ${forceMobile ? 'gap-10' : 'lg:grid-cols-12 gap-16 lg:gap-24'}`}>
+      <div className={`grid grid-cols-1 min-w-0 ${forceMobile ? 'gap-10' : 'lg:grid-cols-12 gap-16 lg:gap-24'}`}>
         {/* Left Side: Editorial Prompt */}
-        <div className={forceMobile ? 'space-y-8 font-sans' : 'lg:col-span-5 space-y-12 font-sans'}>
+        <div className={forceMobile ? 'space-y-8 font-sans min-w-0' : 'lg:col-span-5 space-y-12 font-sans min-w-0'}>
           <div className="space-y-6">
             <span className="font-sans text-[10px] uppercase tracking-[0.3em] text-[#1A1A1A] block font-bold">
               {isTimelapseMode ? <TypewriterText text="03 / Conversemos" speed={20} /> : '03 / Conversemos'}
@@ -146,7 +146,7 @@ export default function ContactSection({ step = 0, isTimelapseMode = false, forc
         </div>
 
         {/* Right Side: High-End Minimalist Form */}
-        <div className={forceMobile ? 'bg-[#F4F2EE] border border-black/5 p-6 shadow-sm relative overflow-hidden' : 'lg:col-span-7 bg-[#F4F2EE] border border-black/5 rounded-none p-8 md:p-12 shadow-sm relative overflow-hidden'}>
+        <div className={forceMobile ? 'bg-[#F4F2EE] border border-black/5 p-6 shadow-sm relative overflow-hidden min-w-0' : 'lg:col-span-7 bg-[#F4F2EE] border border-black/5 rounded-none p-8 md:p-12 shadow-sm relative overflow-hidden min-w-0'}>
           <div className="absolute top-0 left-0 w-full h-[1.5px] bg-[#1A1A1A]" />
 
           {submitted ? (

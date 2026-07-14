@@ -5,9 +5,7 @@ import Navbar from './components/Navbar';
 import CustomCursor from './components/CustomCursor';
 import AmbientParticles from './components/AmbientParticles';
 import OrganicParticles from './components/OrganicParticles';
-import HeroCanvas from './components/HeroCanvas';
 import HeroBlend from './components/HeroBlend';
-import WordmarkHandoff from './components/WordmarkHandoff';
 import MonologButton from './components/MonologButton';
 import ProjectCard from './components/ProjectCard';
 import ProjectMobileCarousel from './components/ProjectMobileCarousel';
@@ -27,10 +25,10 @@ const LegalModal = lazy(() => import('./components/LegalModal'));
 
 export default function App() {
   const [activeSection, setActiveSection] = useState('home');
+  const isDarkSection = ['philosophy', 'services', 'cta-footer'].includes(activeSection);
   const [isHireOpen, setIsHireOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [activeLegalType, setActiveLegalType] = useState<'terms' | 'privacy' | null>(null);
-  const [scrollY, setScrollY] = useState(0);
   const heroRef = useRef<HTMLElement>(null);
   const lenisRef = useRef<Lenis | null>(null);
   const shouldReduceMotion = useReducedMotion();
@@ -41,6 +39,11 @@ export default function App() {
   const heroContentScale = useTransform(heroProgress, [0, 1], [1, shouldReduceMotion ? 1 : 0.82]);
   const heroContentOpacity = useTransform(heroProgress, [0, 1], [1, 0]);
   const heroContentY = useTransform(heroProgress, [0, 1], [0, shouldReduceMotion ? 0 : 60]);
+  // Slow Ken Burns drift on the hero photo as the section scrolls past —
+  // GPU-composited via framer motion values instead of a React-state scroll
+  // listener, so it stays smooth and doesn't re-render on every scroll tick.
+  const heroImageY = useTransform(heroProgress, [0, 1], [0, shouldReduceMotion ? 0 : 70]);
+  const heroImageScale = useTransform(heroProgress, [0, 1], [1.25, shouldReduceMotion ? 1.25 : 1.4]);
 
   // "Cerramos" / "Esa Brecha" converge from opposite edges as the section
   // scrolls into view, and pull back apart if the user scrolls back up.
@@ -57,8 +60,8 @@ export default function App() {
     typeof window !== 'undefined' && window.innerWidth >= 640
       ? Math.min(220, window.innerWidth * 0.28)
       : 0;
-  const closesX = useTransform(philosophyProgress, [0, 1], [shouldReduceMotion ? 0 : -philosophyShift, 0]);
-  const gapX = useTransform(philosophyProgress, [0, 1], [shouldReduceMotion ? 0 : philosophyShift, 0]);
+  const closesX = useTransform(philosophyProgress, [0, 0.75], [shouldReduceMotion ? 0 : -philosophyShift, 0]);
+  const gapX = useTransform(philosophyProgress, [0, 0.75], [shouldReduceMotion ? 0 : philosophyShift, 0]);
 
   // Slow ambient zoom on the closing CTA's background loop as it scrolls through
   const ctaFooterRef = useRef<HTMLElement>(null);
@@ -102,16 +105,9 @@ export default function App() {
     }
     requestAnimationFrame(raf);
 
-    // Track scroll Y for parallax
-    const handleScroll = () => {
-      setScrollY(window.scrollY);
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-
     return () => {
       lenis.destroy();
       lenisRef.current = null;
-      window.removeEventListener('scroll', handleScroll);
     };
   }, []);
 
@@ -119,13 +115,13 @@ export default function App() {
   // keeps driving the page scroll underneath, ignoring the overlay's own
   // body-scroll lock, and the page visibly scrolls behind the modal.
   useEffect(() => {
-    const anyOverlayOpen = Boolean(selectedProject) || isHireOpen || isAboutOpen;
+    const anyOverlayOpen = Boolean(selectedProject) || isHireOpen || isAboutOpen || Boolean(activeLegalType);
     if (anyOverlayOpen) {
       lenisRef.current?.stop();
     } else {
       lenisRef.current?.start();
     }
-  }, [selectedProject, isHireOpen, isAboutOpen]);
+  }, [selectedProject, isHireOpen, isAboutOpen, activeLegalType]);
 
   // Scroll-spy: highlight the active nav item as the user scrolls
   useEffect(() => {
@@ -216,14 +212,14 @@ export default function App() {
       <AmbientParticles hidden={['home', 'philosophy', 'services'].includes(activeSection)} />
 
       {/* Custom cursor tracer */}
-      <CustomCursor />
+      <CustomCursor dark={isDarkSection} />
 
       {/* Top Navbar */}
       <Navbar
         onHireClick={() => setIsHireOpen(true)}
         onAboutClick={() => setIsAboutOpen(true)}
         activeSection={activeSection}
-        dark={['philosophy', 'services', 'cta-footer'].includes(activeSection)}
+        dark={isDarkSection}
       />
 
       <main className="w-full flex-1 flex flex-col z-10">
@@ -235,29 +231,34 @@ export default function App() {
           className="min-h-[100svh] flex flex-col justify-between items-center pt-24 sm:pt-28 md:pt-32 pb-12 sm:pb-16 px-5 sm:px-6 md:px-20 relative overflow-hidden"
         >
           <div className="absolute inset-0 z-0 overflow-hidden">
-            <img
-              src="https://images.unsplash.com/photo-1527576539890-dfa815648363?q=60&w=900&auto=format&fit=crop"
+            <motion.img
+              src="https://cdn.prod.website-files.com/68b652bbd6c64a44c8fe3e5e/69d51282c6041349788c8177_Key%20Visual-2.avif"
               loading="eager"
               fetchPriority="high"
               alt="Arquitectura moderna — AugustoCS, diseño web y e-commerce"
-              className="w-full h-full object-cover scale-125"
+              className="w-full h-full object-cover"
               style={{
-                transform: `translate3d(0, ${scrollY * 0.08}px, 0)`,
-                filter: 'blur(22px) brightness(1) saturate(1.7) contrast(1.1)'
+                y: heroImageY,
+                scale: heroImageScale,
+                filter: 'blur(4px) brightness(0.98) saturate(1.25) contrast(1.1)'
               }}
             />
             <div className="absolute inset-0 bg-[#0A0A09]/8" />
-            <div
-              className="absolute inset-0 opacity-[0.18] mix-blend-overlay pointer-events-none"
-              style={{
-                backgroundImage: 'url(\'data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="n"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23n)"/%3E%3C/svg%3E\')',
-                backgroundRepeat: 'repeat'
-              }}
-            />
           </div>
 
-          <HeroCanvas />
           <HeroBlend />
+
+          {/* AUGUSTOCS wordmark — pinned to the hero's own bottom edge so its
+              position never depends on how tall the headline above happens
+              to wrap; that dependency was the source of the overlap. */}
+          <div className="absolute inset-x-0 bottom-6 sm:bottom-8 md:bottom-10 flex justify-center pointer-events-none z-[2] px-4">
+            <h2
+              className="text-zinc-700 opacity-40 select-none whitespace-nowrap"
+              style={{ fontFamily: "'Unbounded', sans-serif", fontWeight: 700, fontSize: 'clamp(2.2rem, 8vw, 5.6rem)' }}
+            >
+              AUGUSTOCS
+            </h2>
+          </div>
 
           <div className="w-full max-w-[1440px] mx-auto flex flex-col justify-between h-full flex-1 z-10 mt-12 relative">
           <motion.div
@@ -278,7 +279,7 @@ export default function App() {
                   <img src="/logo-normal.png" alt="AugustoCS" className="w-full h-auto select-none" />
                 </motion.div>
 
-                <h1 className="font-serif text-2xl sm:text-3xl md:text-4xl lg:text-[2.75rem] tracking-[-0.02em] leading-[1.1] font-normal text-[#1A1A1A] max-w-xl mt-6">
+                <h1 className="font-serif text-lg sm:text-xl md:text-2xl lg:text-[2rem] tracking-[-0.02em] leading-[1.1] font-normal text-white max-w-xl mt-6">
                   <span className="block overflow-hidden py-1">
                     <motion.span
                       initial={{ y: '110%' }}
@@ -286,7 +287,7 @@ export default function App() {
                       transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
                       className="block"
                     >
-                      Elevamos tu <span className="text-zinc-400">marca</span>
+                      Elevamos tu marca
                     </motion.span>
                   </span>
                   <span className="block overflow-hidden py-1">
@@ -296,7 +297,7 @@ export default function App() {
                       transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1], delay: 0.28 }}
                       className="block"
                     >
-                      a su máxima <span className="text-zinc-400">expresión.</span>
+                      a su máxima expresión.
                     </motion.span>
                   </span>
                 </h1>
@@ -304,9 +305,9 @@ export default function App() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 1.2, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                  className="font-sans text-[10px] sm:text-xs text-zinc-500 uppercase tracking-[0.25em] leading-relaxed font-bold"
+                  className="font-sans text-[10px] sm:text-xs text-white/70 uppercase tracking-[0.25em] leading-relaxed font-bold"
                 >
-                  Diseño web, e-commerce &amp; contenido · Castellón
+                  Diseño web · E-commerce · Contenido · Castellón
                 </motion.p>
               </div>
             </div>
@@ -314,18 +315,12 @@ export default function App() {
           </div>
         </section>
 
-        {/* Single wordmark, shared between hero and Philosophy — see
-            WordmarkHandoff for how it shrinks/whitens/lands via scroll. */}
-        <WordmarkHandoff />
-
         {/* PHILOSOPHY & CAPABILITIES SECTION */}
         <section
           ref={philosophyRef}
           id="philosophy"
           className="py-20 sm:py-24 md:py-40 bg-[#0A0A09] text-[#EAE7E2] w-[100vw] ml-[calc(50%-50vw)] px-5 sm:px-8 md:px-12 lg:px-20 border-b border-white/5 relative overflow-hidden"
         >
-          <OrganicParticles />
-
           <div className="max-w-[1440px] mx-auto flex flex-col justify-between min-h-[60vh] relative z-10">
             <motion.span
               initial={{ opacity: 0, y: 10 }}
@@ -337,29 +332,40 @@ export default function App() {
               01 / FILOSOFÍA
             </motion.span>
 
-            <div className="w-full flex flex-col md:flex-row items-center justify-center gap-6 md:gap-12 my-12">
+            <motion.h3
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-100px' }}
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              className="text-white text-center select-none"
+              style={{ fontFamily: "'Unbounded', sans-serif", fontWeight: 700, fontSize: 'clamp(0.9rem, 2vw, 1.5rem)' }}
+            >
+              AUGUSTOCS
+            </motion.h3>
+
+            <div className="relative w-full flex flex-col items-start justify-center gap-1 sm:gap-2 my-12">
+              {/* Background loop — sits behind both phrases, dimmed so it reads as texture, not a competing element */}
+              <motion.div
+                initial={{ opacity: 0, scale: 1.05 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true, margin: '-100px' }}
+                transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+                className="absolute inset-0 z-0 overflow-hidden opacity-25 pointer-events-none"
+              >
+                <AbstractLoop className="w-full h-full" />
+                <div className="absolute inset-0 bg-[#0A0A09]/40" />
+              </motion.div>
+
               <motion.h2
                 style={{ x: closesX }}
                 initial={{ opacity: 0 }}
                 whileInView={{ opacity: 1 }}
                 viewport={{ once: true, margin: '-100px' }}
                 transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                className="font-serif text-4xl sm:text-6xl md:text-8xl font-light uppercase tracking-tight text-white select-none"
+                className="relative z-10 font-serif text-4xl sm:text-6xl md:text-8xl font-light uppercase tracking-tight text-white select-none"
               >
-                Cerramos
+                Hablemos
               </motion.h2>
-
-              <motion.div
-                initial={{ opacity: 0, scale: 0.85 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true, margin: '-100px' }}
-                whileHover={{ scale: 1.05 }}
-                transition={{ duration: 0.7, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-                className="w-48 sm:w-64 aspect-[4/3] overflow-hidden bg-zinc-800 border border-white/10 relative shadow-2xl"
-              >
-                <AbstractLoop className="w-full h-full" />
-                <div className="absolute inset-0 bg-[#EAE7E2]/5 mix-blend-overlay pointer-events-none" />
-              </motion.div>
 
               <motion.h2
                 style={{ x: gapX }}
@@ -367,9 +373,9 @@ export default function App() {
                 whileInView={{ opacity: 1 }}
                 viewport={{ once: true, margin: '-100px' }}
                 transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-                className="font-serif text-4xl sm:text-6xl md:text-8xl font-light uppercase tracking-tight text-white select-none"
+                className="relative z-10 font-serif text-4xl sm:text-6xl md:text-8xl font-light uppercase tracking-tight text-white select-none whitespace-nowrap ml-10 sm:ml-20 md:ml-32"
               >
-                Esa Brecha.
+                de tu Visión.
               </motion.h2>
             </div>
 

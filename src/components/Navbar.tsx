@@ -78,7 +78,7 @@ export default function Navbar({ onHireClick, onAboutClick, activeSection, dark 
             : 'bg-transparent py-5'
         } ${dark ? 'text-[#EAE7E2]' : 'text-[#0A0A09]'}`}
       >
-        <div className="flex justify-between items-center px-6 md:px-20 w-full max-w-[1440px] mx-auto">
+        <div className="flex justify-between items-center gap-4 px-6 md:px-8 lg:px-12 xl:px-20 w-full max-w-[1440px] mx-auto">
 
           {/* AugustoCS Logo */}
           <motion.a
@@ -89,7 +89,7 @@ export default function Navbar({ onHireClick, onAboutClick, activeSection, dark 
             }}
             whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.99 }}
-            className="flex items-center gap-2.5 cursor-none z-50 text-current"
+            className="flex items-center gap-2.5 cursor-none z-50 text-current shrink-0"
             data-cursor-text="INICIO"
           >
             <img
@@ -103,7 +103,7 @@ export default function Navbar({ onHireClick, onAboutClick, activeSection, dark 
           </motion.a>
 
           {/* Links (Desktop) */}
-          <div className="hidden md:flex items-center gap-12">
+          <div className="hidden lg:flex items-center gap-7 xl:gap-12 shrink-0">
             {menuItems.map((item) => {
               const isActive = activeSection === item.id;
               return (
@@ -134,15 +134,15 @@ export default function Navbar({ onHireClick, onAboutClick, activeSection, dark 
           </div>
 
           {/* Action Button (Desktop) */}
-          <div className="hidden md:flex items-center">
-            <MonologButton onClick={onHireClick} dark={dark} className="bg-transparent text-current">Empezar proyecto</MonologButton>
+          <div className="hidden lg:flex items-center shrink-0">
+            <MonologButton onClick={onHireClick} dark={dark} className="bg-transparent text-current pl-5 xl:pl-7">Empezar proyecto</MonologButton>
           </div>
 
           {/* Mobile Menu Button */}
           <motion.button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             whileTap={{ scale: 0.9 }}
-            className="md:hidden text-current p-2 z-50 relative"
+            className="lg:hidden text-current p-2 z-50 relative"
             aria-label="Toggle Menu"
           >
             {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
@@ -158,7 +158,7 @@ export default function Navbar({ onHireClick, onAboutClick, activeSection, dark 
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -15 }}
             transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed inset-0 top-[77px] w-full bg-[#EAE7E2]/98 backdrop-blur-2xl z-30 md:hidden overflow-hidden flex flex-col justify-center"
+            className="fixed inset-0 top-[77px] w-full bg-[#EAE7E2]/98 backdrop-blur-2xl z-30 lg:hidden overflow-hidden flex flex-col justify-center"
           >
             <motion.div
               variants={{

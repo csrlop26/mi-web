@@ -1,6 +1,14 @@
 import { useEffect, useState, useRef } from 'react';
 
-export default function CustomCursor() {
+interface CustomCursorProps {
+  // Whether the section currently under the cursor has a dark background —
+  // drives the dot's color directly instead of relying on mix-blend-mode,
+  // which broke down wherever another blended layer (grain overlay, particle
+  // canvases) sat between the cursor and the actual section background.
+  dark?: boolean;
+}
+
+export default function CustomCursor({ dark = false }: CustomCursorProps) {
   const [cursorState, setCursorState] = useState<'default' | 'active' | 'active-edge'>('default');
   const [hoverText, setHoverText] = useState('');
   const [isTouchDevice, setIsTouchDevice] = useState(false);
@@ -89,11 +97,13 @@ export default function CustomCursor() {
         </span>
       </div>
 
-      {/* Tiny precise pointer dot — same difference-blend trick */}
+      {/* Tiny precise pointer dot — explicit color by section theme: black
+          dot on light backgrounds, white dot on dark ones */}
       {cursorState === 'default' && (
         <div
-          className="w-2 h-2 bg-white rounded-full absolute -translate-x-1/2 -translate-y-1/2 transition-opacity duration-300"
-          style={{ mixBlendMode: 'difference' }}
+          className={`w-2 h-2 rounded-full absolute -translate-x-1/2 -translate-y-1/2 transition-colors duration-300 ${
+            dark ? 'bg-white' : 'bg-[#0A0A09]'
+          }`}
         />
       )}
     </div>
