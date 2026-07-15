@@ -45,22 +45,23 @@ export const PROJECTS: Project[] = [
     marginTopDesktop: 'md:-mt-12',
     aspectRatio: 'aspect-square'
   },
-  {
-    id: 'b2tech',
-    title: 'B2Tech',
-    category: 'Technology / B2B',
-    imageUrl: '/b2tech.webp',
-    url: 'https://b2tech.augustocs.com/',
-    isDemo: true,
-    description: 'Branding corporativo y técnico para una consultoría de Ingeniería Cloud e IoT.',
-    detailedDescription: 'Creación de una identidad visual técnica y un sitio web corporativo robusto para representar servicios avanzados de Ingeniería Cloud y soluciones IoT para el sector B2B.',
-    client: 'B2Tech',
-    year: '2023',
-    services: ['Corporate Branding', 'Web Development', 'B2B Strategy'],
-    colSpanDesktop: 7,
-    marginTopDesktop: 'md:mt-12',
-    aspectRatio: 'aspect-[16/9]'
-  },
+  // Desactivado temporalmente — pendiente de mejora
+  // {
+  //   id: 'b2tech',
+  //   title: 'B2Tech',
+  //   category: 'Technology / B2B',
+  //   imageUrl: '/b2tech.webp',
+  //   url: 'https://b2tech.augustocs.com/',
+  //   isDemo: true,
+  //   description: 'Branding corporativo y técnico para una consultoría de Ingeniería Cloud e IoT.',
+  //   detailedDescription: 'Creación de una identidad visual técnica y un sitio web corporativo robusto para representar servicios avanzados de Ingeniería Cloud y soluciones IoT para el sector B2B.',
+  //   client: 'B2Tech',
+  //   year: '2023',
+  //   services: ['Corporate Branding', 'Web Development', 'B2B Strategy'],
+  //   colSpanDesktop: 7,
+  //   marginTopDesktop: 'md:mt-12',
+  //   aspectRatio: 'aspect-[16/9]'
+  // },
   {
     id: 'nova-restaurante',
     title: 'Nova Restaurante',

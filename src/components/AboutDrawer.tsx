@@ -24,7 +24,6 @@ export default function AboutDrawer({ isOpen, onClose }: AboutDrawerProps) {
   ];
 
   const demoProjects = [
-    'B2Tech',
     'Nova Restaurante',
     'Odentrics',
     'La Trattoria',
