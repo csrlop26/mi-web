@@ -6,6 +6,9 @@ import CustomCursor from './components/CustomCursor';
 import AmbientParticles from './components/AmbientParticles';
 import OrganicParticles from './components/OrganicParticles';
 import HeroBlend from './components/HeroBlend';
+import ChromaticWaves from './components/ChromaticWaves';
+import FlickerText from './components/FlickerText';
+import MeshTextHover from './components/MeshTextHover';
 import MonologButton from './components/MonologButton';
 import ProjectCard from './components/ProjectCard';
 import ProjectMobileCarousel from './components/ProjectMobileCarousel';
@@ -16,6 +19,9 @@ import AbstractLoop from './components/AbstractLoop';
 import Lenis from 'lenis';
 import { PROJECTS } from './data';
 import { Project } from './types';
+
+const HERO_IMAGE_SRC =
+  'https://cdn.prod.website-files.com/68b652bbd6c64a44c8fe3e5e/69d51282c6041349788c8177_Key%20Visual-2.avif';
 
 // Only mounted after user interaction (click) — kept out of the initial bundle
 const AboutDrawer = lazy(() => import('./components/AboutDrawer'));
@@ -228,11 +234,11 @@ export default function App() {
         <section
           ref={heroRef}
           id="home"
-          className="min-h-[100svh] flex flex-col justify-between items-center pt-24 sm:pt-28 md:pt-32 pb-12 sm:pb-16 px-5 sm:px-6 md:px-20 relative overflow-hidden"
+          className="min-h-[100svh] flex flex-col justify-center items-center pt-24 sm:pt-28 md:pt-32 pb-12 sm:pb-16 px-5 sm:px-6 md:px-20 relative overflow-hidden"
         >
           <div className="absolute inset-0 z-0 overflow-hidden">
             <motion.img
-              src="https://cdn.prod.website-files.com/68b652bbd6c64a44c8fe3e5e/69d51282c6041349788c8177_Key%20Visual-2.avif"
+              src={HERO_IMAGE_SRC}
               loading="eager"
               fetchPriority="high"
               alt="Arquitectura moderna — AugustoCS, diseño web y e-commerce"
@@ -244,6 +250,16 @@ export default function App() {
               }}
             />
             <div className="absolute inset-0 bg-[#0A0A09]/8" />
+            <ChromaticWaves
+              frequency={1}
+              cellSize={2}
+              gamma={10}
+              paletteBias={-5}
+              speed={2}
+              bgColor="rgba(0, 0, 0, 0)"
+              colors={['rgba(255, 255, 255, 0.11)']}
+              style={{ position: 'absolute', inset: 0 }}
+            />
           </div>
 
           <HeroBlend />
@@ -251,35 +267,25 @@ export default function App() {
           {/* AUGUSTOCS wordmark — pinned to the hero's own bottom edge so its
               position never depends on how tall the headline above happens
               to wrap; that dependency was the source of the overlap. */}
-          <div className="absolute inset-x-0 bottom-6 sm:bottom-8 md:bottom-10 flex justify-center pointer-events-none z-[2] px-4">
-            <h2
-              className="text-zinc-700 opacity-40 select-none whitespace-nowrap"
-              style={{ fontFamily: "'Unbounded', sans-serif", fontWeight: 700, fontSize: 'clamp(2.2rem, 8vw, 5.6rem)' }}
-            >
-              AUGUSTOCS
-            </h2>
+          <div className="absolute inset-x-0 bottom-6 sm:bottom-8 md:bottom-10 flex justify-center z-[2] px-4 h-24 sm:h-32 md:h-40 lg:h-48">
+            <MeshTextHover
+              text="AUGUSTOCS"
+              color="rgba(63, 63, 70, 0.7)"
+              fontFamily="Unbounded"
+              fontWeight={700}
+              fontSize={110}
+              className="w-full max-w-[1400px] select-none"
+            />
           </div>
 
-          <div className="w-full max-w-[1440px] mx-auto flex flex-col justify-between h-full flex-1 z-10 mt-12 relative">
+          <div className="w-full max-w-[1440px] mx-auto flex flex-col justify-center h-full flex-1 z-10 relative">
           <motion.div
             style={{ scale: heroContentScale, opacity: heroContentOpacity, y: heroContentY }}
             className="w-full flex flex-col"
           >
             <div className="flex flex-col items-center text-center gap-8 w-full max-w-3xl mx-auto">
               <div className="space-y-6 flex flex-col items-center">
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: [0.9, 1, 1.04, 1] }}
-                  transition={{
-                    opacity: { duration: 1.2, ease: [0.16, 1, 0.3, 1] },
-                    scale: { duration: 6, times: [0, 0.2, 0.6, 1], repeat: Infinity, ease: [0.45, 0, 0.55, 1] }
-                  }}
-                  className="w-12 h-auto"
-                >
-                  <img src="/logo-negative.png" alt="AugustoCS" className="w-full h-auto select-none" />
-                </motion.div>
-
-                <h1 className="font-serif text-lg sm:text-xl md:text-2xl lg:text-[2rem] tracking-[-0.02em] leading-[1.1] font-normal text-white max-w-xl mt-6">
+                <h1 className="font-serif text-base sm:text-lg md:text-xl lg:text-[1.6rem] tracking-[-0.02em] leading-[1.1] font-normal text-white max-w-xl">
                   <span className="block overflow-hidden py-1">
                     <motion.span
                       initial={{ y: '110%' }}
@@ -305,9 +311,13 @@ export default function App() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 1.2, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                  className="font-sans text-[10px] sm:text-xs text-white/70 uppercase tracking-[0.25em] leading-relaxed font-bold"
+                  className="font-sans text-[8px] sm:text-[10px] uppercase tracking-[0.2em] leading-relaxed font-bold"
                 >
-                  Diseño web · E-commerce · Contenido · Castellón
+                  <FlickerText
+                    text="DISEÑO WEB ● SOLUCIONES DIGITALES ● E-COMMERCE"
+                    tag="span"
+                    fontColor="rgba(255,255,255,0.7)"
+                  />
                 </motion.p>
               </div>
             </div>
