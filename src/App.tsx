@@ -20,11 +20,11 @@ import Lenis from 'lenis';
 import { PROJECTS } from './data';
 import { Project } from './types';
 
-// Self-hosted WebP/JPEG instead of the original remote .avif — that AVIF
-// silently fails to decode on WebKit (naturalWidth stays 0, no error, no
-// fallback triggers), which is why the mobile hero rendered as a blank
-// white section behind the text on real Safari/iOS.
-const HERO_IMAGE_SRC = '/hero-key-visual.webp';
+// Self-hosted JPEG instead of the original remote .avif — that AVIF
+// silently failed to decode on WebKit (naturalWidth stayed 0, no error, no
+// fallback triggered). Kept as plain JPEG rather than <picture>+webp too:
+// one less format-negotiation path to misbehave on a device we can't
+// directly debug.
 const HERO_IMAGE_FALLBACK = '/hero-key-visual.jpg';
 
 // Only mounted after user interaction (click) — kept out of the initial bundle
@@ -240,10 +240,8 @@ export default function App() {
           id="home"
           className="min-h-[100svh] flex flex-col justify-center items-center pt-24 sm:pt-28 md:pt-32 pb-12 sm:pb-16 px-5 sm:px-6 md:px-20 relative overflow-hidden"
         >
-          <div className="absolute inset-0 z-0 overflow-hidden">
-            <picture>
-              <source srcSet={HERO_IMAGE_SRC} type="image/webp" />
-              <motion.img
+          <div className="absolute inset-0 z-0 overflow-hidden bg-[#26241F]">
+            <motion.img
               src={HERO_IMAGE_FALLBACK}
               loading="eager"
               fetchPriority="high"
@@ -254,8 +252,7 @@ export default function App() {
                 scale: heroImageScale,
                 filter: 'blur(4px) brightness(0.98) saturate(1.25) contrast(1.1)'
               }}
-              />
-            </picture>
+            />
             <div className="absolute inset-0 bg-[#0A0A09]/8" />
             <ChromaticWaves
               frequency={1}
