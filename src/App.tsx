@@ -254,6 +254,11 @@ export default function App() {
               }}
             />
             <div className="absolute inset-0 bg-[#0A0A09]/8" />
+            {/* Off below md: a second WebGL2 context plus a fine cellSize
+                grain on a phone GPU is real load for a purely decorative
+                overlay, and it's the only thing new since the mobile hero
+                started rendering blank — cut as a suspect and to lighten
+                mobile regardless of whether it was the actual cause. */}
             <ChromaticWaves
               frequency={1}
               cellSize={2}
@@ -262,6 +267,7 @@ export default function App() {
               speed={2}
               bgColor="rgba(0, 0, 0, 0)"
               colors={['rgba(255, 255, 255, 0.11)']}
+              className="hidden md:block"
               style={{ position: 'absolute', inset: 0 }}
             />
           </div>
