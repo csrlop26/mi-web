@@ -285,7 +285,10 @@ export default function App() {
           >
             <div className="flex flex-col items-center text-center gap-8 w-full max-w-3xl mx-auto">
               <div className="space-y-6 flex flex-col items-center">
-                <h1 className="font-serif text-base sm:text-lg md:text-xl lg:text-[1.6rem] tracking-[-0.02em] leading-[1.1] font-normal text-white max-w-xl">
+                <h1
+                  className="font-serif text-base sm:text-lg md:text-xl lg:text-[1.6rem] tracking-[-0.02em] leading-[1.1] font-normal text-white max-w-xl"
+                  style={{ textShadow: '0 1px 16px rgba(0,0,0,0.45)' }}
+                >
                   <span className="block overflow-hidden py-1">
                     <motion.span
                       initial={{ y: '110%' }}
@@ -312,6 +315,7 @@ export default function App() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 1.2, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
                   className="font-sans text-[8px] sm:text-[10px] uppercase tracking-[0.2em] leading-relaxed font-bold"
+                  style={{ textShadow: '0 1px 12px rgba(0,0,0,0.45)' }}
                 >
                   <FlickerText
                     text="DISEÑO WEB ● SOLUCIONES DIGITALES ● E-COMMERCE"

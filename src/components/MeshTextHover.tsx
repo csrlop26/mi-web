@@ -257,10 +257,10 @@ export default function MeshTextHover({
             const w = Math.max(2, canvas.width)
             const h = Math.max(2, canvas.height)
             const dpr = window.devicePixelRatio || 1
-            const realSize = fontSize * dpr
+            const capSize = fontSize * dpr
             try {
                 if (typeof document !== "undefined") {
-                    const fontStr = `${fontStyle} ${fontWeight} ${realSize}px ${fontFamily}`
+                    const fontStr = `${fontStyle} ${fontWeight} ${capSize}px ${fontFamily}`
                     if ((document as any).fonts?.load) await (document as any).fonts.load(fontStr)
                     if ((document as any).fonts?.ready) await (document as any).fonts.ready
                 }
@@ -268,7 +268,20 @@ export default function MeshTextHover({
                 /* ignore */
             }
             if (cancelled) return
-            const c2 = renderTextToCanvas(String(text ?? ""), color, fontFamily, fontWeight, fontStyle, realSize, w, h)
+            // `fontSize` is a cap, not a fixed size — on a narrow container
+            // (e.g. a full-width wordmark strip on mobile) that pixel size
+            // can overflow badly. Measure the actual string at a reference
+            // size and scale down to fit the canvas width, never scaling up
+            // past the cap.
+            const label = String(text ?? "")
+            const refSize = 100 * dpr
+            const measureCtx = document.createElement("canvas").getContext("2d")!
+            measureCtx.font = `${fontStyle} ${fontWeight} ${refSize}px ${fontFamily}, sans-serif`
+            const measuredWidth = measureCtx.measureText(label).width
+            const maxWidth = w * 0.94
+            const fitSize = measuredWidth > 0 ? (maxWidth / measuredWidth) * refSize : capSize
+            const realSize = Math.max(1, Math.min(fitSize, capSize))
+            const c2 = renderTextToCanvas(label, color, fontFamily, fontWeight, fontStyle, realSize, w, h)
             gl.bindTexture(gl.TEXTURE_2D, tex)
             gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true)
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c2)
