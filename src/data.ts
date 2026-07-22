@@ -111,6 +111,22 @@ export const PROJECTS: Project[] = [
     aspectRatio: 'aspect-[3/2]'
   },
   {
+    id: 'meraki',
+    title: 'Meraki Cookies',
+    category: 'E-commerce / Bakery',
+    imageUrl: '/meraki.webp',
+    url: 'https://demo2.augustocs.com/',
+    isDemo: true,
+    description: 'Galletas artesanales estilo New York y tartas de queso, con un configurador de caja a medida.',
+    detailedDescription: 'Tienda online para un obrador artesanal de galletas en Castellón. El corazón del sitio es un configurador de caja donde el cliente arma su propia selección de sabores, sumado a catálogo, tartas, testimonios y newsletter con una identidad visual cálida y editorial.',
+    client: 'Meraki Cookies',
+    year: '2026',
+    services: ['Web Design', 'E-Commerce', 'Frontend Development'],
+    colSpanDesktop: 7,
+    marginTopDesktop: 'md:mt-8',
+    aspectRatio: 'aspect-[16/9]'
+  },
+  {
     id: 'building-new',
     title: 'Próximamente',
     category: 'Work in progress',
