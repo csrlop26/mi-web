@@ -2,20 +2,6 @@ import { Project, JournalPost } from './types';
 
 export const PROJECTS: Project[] = [
   {
-    id: 'robot-energy',
-    title: 'Robot Energy & Peace',
-    category: 'E-commerce / Beverage',
-    imageUrl: '/RobotEnergy.webp',
-    url: 'https://www.robotenergy.com/',
-    description: 'Plataforma Shopify personalizada para una marca de bebidas premium, con un diseño inmersivo y enfocado en la conversión.',
-    detailedDescription: 'Desarrollo de una plataforma de comercio electrónico de alto rendimiento en Shopify. Diseñada con una estética moderna e inmersiva que guía al usuario hacia la conversión mediante interacciones fluidas y un rendimiento altamente optimizado.',
-    client: 'Robot Energy',
-    year: '2024',
-    services: ['Shopify Development', 'UI/UX Design', 'E-Commerce Strategy'],
-    colSpanDesktop: 8,
-    aspectRatio: 'aspect-[16/9]'
-  },
-  {
     id: 'madre-superiora',
     title: 'Madre Superiora',
     category: 'E-commerce / Lifestyle',
@@ -31,19 +17,18 @@ export const PROJECTS: Project[] = [
     aspectRatio: 'aspect-[4/5]'
   },
   {
-    id: 'autotietz',
-    title: 'AutoTietz',
-    category: 'Automotive / Sales',
-    imageUrl: '/autotietz.webp',
-    url: 'https://www.autotietz.com/',
-    description: 'Portal de compraventa de vehículos con una experiencia de usuario fluida y sistemas de filtrado avanzados.',
-    detailedDescription: 'Diseño e implementación de un portal avanzado para la compra y venta de vehículos. Integración de potentes sistemas de filtrado de búsqueda y una arquitectura de información orientada a facilitar la toma de decisiones del usuario.',
-    client: 'AutoTietz',
-    year: '2023',
-    services: ['UX/UI Design', 'Advanced Filtering', 'Portal Development'],
-    colSpanDesktop: 5,
-    marginTopDesktop: 'md:-mt-12',
-    aspectRatio: 'aspect-square'
+    id: 'robot-energy',
+    title: 'Robot Energy & Peace',
+    category: 'E-commerce / Beverage',
+    imageUrl: '/RobotEnergy.webp',
+    url: 'https://www.robotenergy.com/',
+    description: 'Plataforma Shopify personalizada para una marca de bebidas premium, con un diseño inmersivo y enfocado en la conversión.',
+    detailedDescription: 'Desarrollo de una plataforma de comercio electrónico de alto rendimiento en Shopify. Diseñada con una estética moderna e inmersiva que guía al usuario hacia la conversión mediante interacciones fluidas y un rendimiento altamente optimizado.',
+    client: 'Robot Energy',
+    year: '2024',
+    services: ['Shopify Development', 'UI/UX Design', 'E-Commerce Strategy'],
+    colSpanDesktop: 8,
+    aspectRatio: 'aspect-[16/9]'
   },
   // Desactivado temporalmente — pendiente de mejora
   // {
@@ -125,6 +110,21 @@ export const PROJECTS: Project[] = [
     colSpanDesktop: 7,
     marginTopDesktop: 'md:mt-8',
     aspectRatio: 'aspect-[16/9]'
+  },
+  {
+    id: 'autotietz',
+    title: 'AutoTietz',
+    category: 'Automotive / Sales',
+    imageUrl: '/autotietz.webp',
+    url: 'https://www.autotietz.com/',
+    description: 'Portal de compraventa de vehículos con una experiencia de usuario fluida y sistemas de filtrado avanzados.',
+    detailedDescription: 'Diseño e implementación de un portal avanzado para la compra y venta de vehículos. Integración de potentes sistemas de filtrado de búsqueda y una arquitectura de información orientada a facilitar la toma de decisiones del usuario.',
+    client: 'AutoTietz',
+    year: '2023',
+    services: ['UX/UI Design', 'Advanced Filtering', 'Portal Development'],
+    colSpanDesktop: 5,
+    marginTopDesktop: 'md:-mt-12',
+    aspectRatio: 'aspect-square'
   },
   {
     id: 'building-new',
