@@ -9,11 +9,16 @@ interface ProjectModalProps {
 }
 
 export default function ProjectModal({ project, onClose }: ProjectModalProps) {
-  const [isMobile, setIsMobile] = useState(false);
+  // Read synchronously on first render — a state that starts false and
+  // flips true one effect-tick later means the sheet's very first animation
+  // frame targets the desktop x-axis slide, then retargets to the mobile
+  // y-axis mid-flight once the effect fires. Framer Motion combines the
+  // leftover offset from both, which is why the sheet looked stuck halfway
+  // off-screen on mobile instead of sliding fully into view.
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
-    check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
   }, []);
